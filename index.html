@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pelayanan Kantin SMK Negeri 1 Cimahi</title>
+  <meta name="description" content="Pesan makanan dan jajanan kantin SMK Negeri 1 Cimahi dari kelas, ambil dengan nomor antrean.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container">
+      <a class="merek" href="index.html">
+        <!-- Taruh logo sekolah di img/logo-smkn1.png. Kalau belum ada, tampil lingkaran kosong. -->
+        <img class="logo" src="img/logo-smkn1.png" alt="Logo SMK Negeri 1 Cimahi"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'logo-kosong',title:'Taruh logo di img/logo-smkn1.png'}))">
+        <span>Kantin<br>SMKN 1 Cimahi</span>
+      </a>
+      <a class="tombol tombol-garis" href="login.html">Masuk</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div>
+        <h1>Pesan dari kelas, ambil tanpa antre.</h1>
+        <p class="lembut">Pilih menu dari kantin sekolah, dapatkan nomor antrean, lalu ambil pesananmu saat sudah siap. Untuk siswa, guru, dan pegawai.</p>
+        <div class="baris-tombol">
+          <a class="tombol tombol-aksen" href="daftar-pembeli.html">Daftar untuk memesan</a>
+          <a class="tombol tombol-garis" href="daftar-penjual.html">Daftar sebagai penjual</a>
+        </div>
+      </div>
+      <!-- Contoh tiket antrean: hanya tampilan, bukan data asli -->
+      <div class="tiket" aria-hidden="true">
+        <small>Contoh nomor antrean</small>
+        <div class="nomor">07</div>
+        <div class="garis-putus"></div>
+        <span class="label label-sukses">Siap diambil</span>
+      </div>
+    </section>
+
+    <section class="kartu">
+      <h2>Cara memesan</h2>
+      <ol class="langkah">
+        <li><span>Pilih kantin yang sedang buka, lalu masukkan menu ke keranjang.</span></li>
+        <li><span>Pilih bayar Cash atau QRIS, lalu kirim pesanan.</span></li>
+        <li><span>Lihat statusnya langsung di layar. Saat "Siap diambil", datang ke kantin dan sebutkan nomor antreanmu.</span></li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="footer">Pelayanan Kantin SMK Negeri 1 Cimahi</footer>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tes koneksi - Kantin SMKN 1 Cimahi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container"><a class="merek" href="index.html"><span class="logo-kosong"></span><span>Kantin<br>SMKN 1 Cimahi</span></a></div>
+  </header>
+
+  <main class="container">
+    <h1>Tes koneksi</h1>
+    <p class="lembut">Halaman ini hanya untuk percobaan. Nanti bisa dihapus.</p>
+
+    <section class="kartu" style="margin-bottom:16px">
+      <h2>1. Koneksi ke Supabase</h2>
+      <div id="hasil" class="status-kotak">Memeriksa...</div>
+      <p style="margin-top:12px"><button id="tombol-ulang" class="tombol tombol-utama">Tes lagi</button></p>
+    </section>
+
+    <section class="kartu" style="margin-bottom:16px">
+      <h2>2. Contoh tampilan</h2>
+      <div class="grid-menu">
+        <div class="kartu-menu">
+          <div class="foto">Foto menu</div>
+          <div class="isi"><span class="nama">Nasi goreng (contoh)</span><span class="harga" id="harga-contoh"></span></div>
+        </div>
+        <div class="kartu-menu habis">
+          <div class="foto">Foto menu</div>
+          <div class="isi"><span class="nama">Es teh (contoh)</span><span class="label label-habis">Habis</span><span class="harga">Rp 3.000</span></div>
+        </div>
+      </div>
+      <div id="kotak-kosong"></div>
+      <div id="kotak-loading"></div>
+      <div class="baris-tombol">
+        <button class="tombol tombol-aksen" id="t-sukses">Toast sukses</button>
+        <button class="tombol tombol-garis" id="t-gagal">Toast gagal</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    const hasil = document.getElementById('hasil');
+
+    async function tesKoneksi() {
+      hasil.className = 'status-kotak';
+      hasil.textContent = 'Memeriksa...';
+
+      if (!kunciSudahDiisi()) {
+        hasil.className = 'status-kotak gagal';
+        hasil.textContent = 'Belum diisi. Buka js/supabase-client.js lalu isi Project URL dan publishable key.';
+        return;
+      }
+      // Tanpa login, RLS membuat hasilnya daftar kosong. Yang kita cek: TIDAK ADA error.
+      const { error } = await db.from('pengumuman').select('id').limit(1);
+      const { data: sesi } = await db.auth.getSession();
+
+      if (error) {
+        hasil.className = 'status-kotak gagal';
+        hasil.textContent = 'Gagal terhubung: ' + error.message;
+      } else {
+        hasil.className = 'status-kotak ok';
+        hasil.textContent = 'Terhubung ke Supabase. ' + (sesi.session ? 'Ada sesi login.' : 'Belum ada yang login (normal).');
+      }
+    }
+
+    document.getElementById('harga-contoh').textContent = rupiah(12000);
+    tampilKosong(document.getElementById('kotak-kosong'), 'Belum ada pesanan', 'Pesanan yang kamu buat akan muncul di sini.');
+    tampilLoading(document.getElementById('kotak-loading'));
+    document.getElementById('t-sukses').onclick = () => tampilToast('Pesanan berhasil dikirim', 'sukses');
+    document.getElementById('t-gagal').onclick = () => tampilToast('Kantin sedang tutup', 'gagal');
+    document.getElementById('tombol-ulang').onclick = tesKoneksi;
+    tesKoneksi();
+  </script>
+</body>
+</html>
