@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Daftar Pembeli - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+<main class="container">
+  <div class="kartu" style="max-width:440px;margin:24px auto">
+    <h1 style="font-size:1.8rem">Daftar untuk memesan</h1>
+    <p class="lembut">Untuk siswa, guru, dan pegawai SMK Negeri 1 Cimahi. Akun langsung aktif setelah daftar.</p>
+    <div id="pesan" class="status-kotak" hidden></div>
+    <form id="form-daftar">
+      <div class="field"><label for="nama">Nama lengkap</label><input class="input" id="nama" name="nama" autocomplete="name" required></div>
+      <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" autocomplete="email" required></div>
+      <div class="field"><label for="jenis">Saya adalah</label>
+        <select class="input" id="jenis" name="jenis" required>
+          <option value="">Pilih...</option><option value="siswa">Siswa</option><option value="guru">Guru</option><option value="pegawai">Pegawai</option>
+        </select></div>
+      <div class="field" id="kotak-kelas" hidden><label for="kelas">Kelas / jurusan</label><input class="input" id="kelas" name="kelas" placeholder="contoh: XI RPL 1"></div>
+      <div class="field"><label for="password">Password (minimal 8 karakter)</label><input class="input" id="password" name="password" type="password" minlength="8" autocomplete="new-password" required></div>
+      <div class="field"><label for="password2">Ulangi password</label><input class="input" id="password2" name="password2" type="password" minlength="8" autocomplete="new-password" required></div>
+      <button class="tombol tombol-aksen tombol-penuh" type="submit">Daftar</button>
+    </form>
+    <p style="margin:16px 0 0" class="lembut">Sudah punya akun? <a href="login.html">Masuk</a></p>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/guard.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  pasangHeader();
+  const jenis = document.getElementById('jenis'), kotak = document.getElementById('kotak-kelas'), kelas = document.getElementById('kelas');
+  jenis.addEventListener('change', () => { const siswa = jenis.value === 'siswa'; kotak.hidden = !siswa; kelas.required = siswa; });
+  document.getElementById('form-daftar').addEventListener('submit', prosesDaftarPembeli);
+</script>
+</body></html>
