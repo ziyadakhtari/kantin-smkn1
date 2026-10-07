@@ -4,7 +4,7 @@
 // AMAN ditaruh di sini : Project URL dan PUBLISHABLE key (sb_publishable_...)
 // JANGAN PERNAH di sini: SECRET key (sb_secret_...) atau service_role.
 
-const SUPABASE_URL = 'https://bkpiipyauksrtacibwss.supabase.co/rest/v1/';
+const SUPABASE_URL = 'https://bkpiipyauksrtacibwss.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_BYZjvHYNU8gWDYcd45A9Nw_7WNxh2KE';
 
 // "db" dipakai semua halaman untuk bicara dengan Supabase.
