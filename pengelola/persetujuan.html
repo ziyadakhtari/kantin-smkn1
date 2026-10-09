@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Persetujuan Penjual - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <p style="margin:8px 0"><a href="dashboard.html">Kembali ke dashboard</a></p>
+  <h1 style="font-size:1.8rem">Persetujuan penjual</h1>
+  <p class="lembut">Penjual baru baru bisa berjualan setelah kamu setujui.</p>
+  <div id="filter" class="baris-tombol" style="margin-bottom:16px"></div>
+  <div id="daftar"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script>
+  const daftar = document.getElementById('daftar');
+  const kotakFilter = document.getElementById('filter');
+  const NAMA_FILTER = { menunggu: 'Menunggu', aktif: 'Disetujui', ditolak: 'Ditolak' };
+  let semua = [];
+  let filterAktif = 'menunggu';
+
+  async function muat() {
+    tampilLoading(daftar);
+    const [p, k] = await Promise.all([
+      db.from('profiles').select('id, nama, email, no_hp, status_akun, dibuat_pada')
+        .eq('peran', 'penjual').order('dibuat_pada', { ascending: false }),
+      db.from('kantin').select('pemilik_id, nama_kantin')
+    ]);
+    const galat = p.error || k.error;
+    if (galat) return tampilKosong(daftar, 'Data gagal dimuat', galat.message);
+
+    const namaKantin = Object.fromEntries(k.data.map((x) => [x.pemilik_id, x.nama_kantin]));
+    semua = p.data.map((x) => ({ ...x, kantin: namaKantin[x.id] || '-' }));
+    gambar();
+  }
+
+  function gambar() {
+    kotakFilter.innerHTML = Object.keys(NAMA_FILTER).map((s) => {
+      const jumlah = semua.filter((x) => x.status_akun === s).length;
+      const gaya = s === filterAktif ? 'tombol-utama' : 'tombol-garis';
+      return `<button class="tombol ${gaya}" data-filter="${s}">${NAMA_FILTER[s]} (${jumlah})</button>`;
+    }).join('');
+
+    const tampil = semua.filter((x) => x.status_akun === filterAktif);
+    if (tampil.length === 0) {
+      const ket = filterAktif === 'menunggu' ? 'Pendaftaran penjual baru akan muncul di sini.' : '';
+      return tampilKosong(daftar, 'Belum ada penjual di daftar ini', ket);
+    }
+    daftar.innerHTML = tampil.map((x) => {
+      const tgl = new Date(x.dibuat_pada).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+      const setuju = `<button class="tombol tombol-utama" data-aksi="aktif" data-id="${x.id}">Setujui</button>`;
+      const tolak = `<button class="tombol tombol-garis" data-aksi="ditolak" data-id="${x.id}">Tolak</button>`;
+      const tombol = x.status_akun === 'menunggu' ? setuju + tolak : x.status_akun === 'ditolak' ? setuju : '';
+      return `<div class="kartu" style="margin-bottom:12px">
+        <strong>${aman(x.kantin)}</strong>
+        <div class="lembut">Pemilik: ${aman(x.nama)}<br>Email: ${aman(x.email)}<br>HP: ${aman(x.no_hp || '-')}<br>Daftar: ${tgl}</div>
+        ${tombol ? `<div class="baris-tombol" style="margin-top:12px">${tombol}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  kotakFilter.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-filter]');
+    if (t) { filterAktif = t.dataset.filter; gambar(); }
+  });
+
+  daftar.addEventListener('click', async (e) => {
+    const t = e.target.closest('[data-aksi]');
+    if (!t) return;
+    const penjual = semua.find((x) => x.id === t.dataset.id);
+    const status = t.dataset.aksi;
+    if (status === 'ditolak' && !confirm('Tolak pendaftaran ' + penjual.kantin + '?')) return;
+
+    tombolSibuk(t, true, 'Menyimpan...');
+    const { data, error } = await db.from('profiles').update({ status_akun: status })
+      .eq('id', t.dataset.id).select('id');
+    if (error || !data || data.length === 0) {
+      tampilToast('Gagal menyimpan. ' + (error ? error.message : 'Tidak ada yang berubah.'), 'gagal');
+      return tombolSibuk(t, false);
+    }
+    tampilToast(status === 'aktif' ? 'Penjual disetujui' : 'Pendaftaran ditolak', 'sukses');
+    muat();
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('pengelola');
+    if (!profil) return;
+    document.body.hidden = false;
+    muat();
+  })();
+</script>
+</body></html>
