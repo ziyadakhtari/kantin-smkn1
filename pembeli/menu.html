@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Menu - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <p style="margin:8px 0"><a href="kantin.html">Kembali ke daftar kantin</a></p>
+  <div id="info"></div>
+  <div id="kontrol" hidden>
+    <input class="input" id="cari" type="search" placeholder="Cari menu..." aria-label="Cari menu" style="margin-bottom:12px">
+    <div id="chips" class="baris-tombol" style="margin-bottom:16px"></div>
+  </div>
+  <div id="grid"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script src="../js/keranjang.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const NAMA_KATEGORI = { semua: 'Semua', 'makanan berat': 'Makanan berat', jajanan: 'Jajanan', minuman: 'Minuman' };
+  let kantin = null, menu = [], kategori = 'semua', kata = '';
+
+  async function muat() {
+    tampilLoading($('grid'));
+    const id = new URLSearchParams(location.search).get('kantin');
+    const [k, m] = await Promise.all([
+      db.from('kantin').select('id, nama_kantin, deskripsi, sedang_buka, qris_url').eq('id', id || '').maybeSingle(),
+      db.from('menu').select('*').eq('kantin_id', id || '').order('nama')
+    ]);
+    if (k.error || !k.data) return tampilKosong($('grid'), 'Kantin tidak ditemukan', 'Kembali ke daftar kantin dan pilih lagi.');
+    if (m.error) return tampilKosong($('grid'), 'Menu gagal dimuat', m.error.message);
+    kantin = k.data; menu = m.data;
+
+    $('info').innerHTML = `
+      <h1 style="font-size:1.8rem;margin-bottom:4px">${aman(kantin.nama_kantin)}</h1>
+      <p class="lembut" style="margin-bottom:8px">${aman(kantin.deskripsi || '')}</p>
+      <p>${kantin.sedang_buka ? '<span class="label label-sukses">Buka</span>' : '<span class="label label-habis">Tutup</span>'}
+         <span class="label label-aksen">${kantin.qris_url ? 'Cash dan QRIS' : 'Cash saja'}</span></p>
+      ${kantin.sedang_buka ? '' : '<div class="status-kotak gagal" style="margin-bottom:16px">Kantin sedang tutup. Kamu bisa melihat menu, tapi belum bisa memesan.</div>'}`;
+    $('kontrol').hidden = false;
+    gambarChips();
+    gambar();
+  }
+
+  function gambarChips() {
+    $('chips').innerHTML = Object.keys(NAMA_KATEGORI).map((k) =>
+      `<button class="tombol ${k === kategori ? 'tombol-utama' : 'tombol-garis'}" data-kategori="${k}" style="min-height:40px;padding:0 16px">${NAMA_KATEGORI[k]}</button>`).join('');
+  }
+
+  function gambar() {
+    if (!menu.length) return tampilKosong($('grid'), 'Belum ada menu', 'Kantin ini belum menambahkan menu.');
+    const hasil = menu.filter((m) => (kategori === 'semua' || m.kategori === kategori) && m.nama.toLowerCase().includes(kata));
+    if (!hasil.length) return tampilKosong($('grid'), 'Menu tidak ditemukan', 'Coba kata kunci atau kategori lain.');
+    $('grid').innerHTML = '<div class="grid-menu">' + hasil.map((m) => {
+      const foto = m.foto_url
+        ? `<img class="foto" src="${aman(m.foto_url)}" alt="${aman(m.nama)}" loading="lazy">`
+        : '<div class="foto">Tanpa foto</div>';
+      const bisa = kantin.sedang_buka && !m.habis;
+      const teks = m.habis ? 'Habis' : kantin.sedang_buka ? 'Tambah' : 'Kantin tutup';
+      return `<div class="kartu-menu ${m.habis ? 'habis' : ''}">${foto}
+        <div class="isi">
+          <span class="nama">${aman(m.nama)}</span>
+          ${m.deskripsi ? `<span class="lembut">${aman(m.deskripsi)}</span>` : ''}
+          ${m.habis ? '<span class="label label-habis">Habis</span>' : ''}
+          <span class="harga">${rupiah(m.harga)}</span>
+          <button class="tombol tombol-aksen tombol-penuh" data-tambah="${m.id}" style="margin-top:8px" ${bisa ? '' : 'disabled'}>${teks}</button>
+        </div></div>`;
+    }).join('') + '</div>';
+  }
+
+  $('cari').addEventListener('input', (e) => { kata = e.target.value.trim().toLowerCase(); gambar(); });
+  $('chips').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-kategori]');
+    if (t) { kategori = t.dataset.kategori; gambarChips(); gambar(); }
+  });
+
+  $('grid').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-tambah]');
+    if (!t) return;
+    const m = menu.find((x) => x.id === t.dataset.tambah);
+    let hasil = tambahKeKeranjang(m, kantin);
+    if (hasil === 'beda-kantin') {
+      const k = bacaKeranjang();
+      const ya = confirm('Keranjangmu berisi menu dari ' + k.kantinNama + '. Satu pesanan hanya untuk satu kantin.\n\nKosongkan keranjang dan mulai pesanan dari ' + kantin.nama_kantin + '?');
+      if (!ya) return;
+      kosongkanKeranjang();
+      hasil = tambahKeKeranjang(m, kantin);
+    }
+    if (hasil === 'ok') tampilToast(m.nama + ' masuk keranjang', 'sukses');
+    else tampilToast('Jumlah sudah mencapai batas stok', 'gagal');
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('pembeli');
+    if (!profil) return;
+    await siapkanKeranjang();
+    pasangNavPembeli('kantin');
+    document.body.hidden = false;
+    muat();
+  })();
+</script>
+</body></html>
