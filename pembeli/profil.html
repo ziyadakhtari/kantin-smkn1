@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Profil - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <h1 style="font-size:1.8rem;margin-top:12px">Profil</h1>
+  <form id="form" class="kartu">
+    <div class="field"><label for="email">Email</label><input class="input" id="email" disabled></div>
+    <div class="field"><label for="nama">Nama lengkap</label><input class="input" id="nama" maxlength="80" required></div>
+    <div class="field"><label for="jenis">Saya adalah</label>
+      <select class="input" id="jenis" required>
+        <option value="siswa">Siswa</option><option value="guru">Guru</option><option value="pegawai">Pegawai</option>
+      </select></div>
+    <div class="field" id="kotak-kelas" hidden><label for="kelas">Kelas / jurusan</label><input class="input" id="kelas" maxlength="40" placeholder="contoh: XI RPL 1"></div>
+    <button class="tombol tombol-aksen tombol-penuh" type="submit">Simpan</button>
+  </form>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script src="../js/keranjang.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let uid = null;
+
+  function aturKelas() {
+    const siswa = $('jenis').value === 'siswa';
+    $('kotak-kelas').hidden = !siswa;
+    $('kelas').required = siswa;
+  }
+  $('jenis').addEventListener('change', aturKelas);
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const tombol = e.target.querySelector('button[type=submit]');
+    tombolSibuk(tombol, true, 'Menyimpan...');
+    const siswa = $('jenis').value === 'siswa';
+    const { data, error } = await db.from('profiles').update({
+      nama: $('nama').value.trim(),
+      jenis_pembeli: $('jenis').value,
+      kelas_jurusan: siswa ? $('kelas').value.trim() : null
+    }).eq('id', uid).select('id');
+    if (error || !data || !data.length) tampilToast('Gagal menyimpan. ' + (error ? error.message : ''), 'gagal');
+    else tampilToast('Profil disimpan', 'sukses');
+    tombolSibuk(tombol, false);
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('pembeli');
+    if (!profil) return;
+    await siapkanKeranjang();
+    pasangNavPembeli('profil');
+    const { data: { session } } = await db.auth.getSession();
+    uid = session.user.id;
+    const { data, error } = await db.from('profiles').select('nama, jenis_pembeli, kelas_jurusan').eq('id', uid).single();
+    document.body.hidden = false;
+    if (error) return tampilToast('Profil gagal dimuat: ' + error.message, 'gagal');
+    $('email').value = session.user.email;
+    $('nama').value = data.nama;
+    $('jenis').value = data.jenis_pembeli || 'siswa';
+    $('kelas').value = data.kelas_jurusan || '';
+    aturKelas();
+  })();
+</script>
+</body></html>
