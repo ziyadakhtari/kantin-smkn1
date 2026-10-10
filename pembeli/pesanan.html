@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Pesanan - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <div id="isi"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script src="../js/keranjang.js"></script>
+<script>
+  const isi = document.getElementById('isi');
+  const STATUS = {
+    diterima: ['Diterima', 'label-aksen'], diproses: ['Diproses', 'label-aksen'],
+    siap_diambil: ['Siap diambil', 'label-sukses'], selesai: ['Selesai', 'label-sukses'],
+    dibatalkan: ['Dibatalkan', 'label-habis']
+  };
+
+  async function muat() {
+    const id = new URLSearchParams(location.search).get('id');
+    const { data: p, error } = await db.from('pesanan').select('*').eq('id', id || '').maybeSingle();
+    if (error || !p) return tampilKosong(isi, 'Pesanan tidak ditemukan', 'Mungkin ini bukan pesananmu.');
+    const [it, k] = await Promise.all([
+      db.from('item_pesanan').select('nama_menu, jumlah, harga_satuan').eq('pesanan_id', p.id).order('nama_menu'),
+      db.from('kantin').select('nama_kantin, qris_url').eq('id', p.kantin_id).maybeSingle()
+    ]);
+    gambar(p, it.data || [], k.data);
+  }
+
+  function gambar(p, item, kantin) {
+    const [teksStatus, kelasStatus] = STATUS[p.status] || [p.status, ''];
+    const waktu = new Date(p.dibuat_pada).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'long', timeStyle: 'short' });
+    const tampilQris = p.metode_bayar === 'qris' && kantin && kantin.qris_url && !['selesai', 'dibatalkan'].includes(p.status);
+
+    isi.innerHTML = `
+      <div class="tiket" style="margin:16px auto">
+        <small>${aman(kantin ? kantin.nama_kantin : 'Kantin')}</small><br>
+        <small>Nomor antrean</small>
+        <div class="nomor">${String(p.nomor_antrean).padStart(2, '0')}</div>
+        <div class="garis-putus"></div>
+        <span class="label ${kelasStatus}">${teksStatus}</span>
+      </div>
+      <p class="lembut" style="text-align:center">Sebutkan nomor antreanmu saat mengambil pesanan di kantin.</p>
+      <div class="baris-tombol" style="justify-content:center;margin-bottom:16px">
+        <button class="tombol tombol-garis" id="perbarui">Perbarui status</button>
+      </div>
+
+      <div class="kartu" style="margin-bottom:12px">
+        <strong>Rincian pesanan</strong>
+        <p class="lembut" style="margin:4px 0 0">${waktu} WIB</p>
+        ${item.map((i) => `
+          <div style="display:flex;justify-content:space-between;gap:12px;padding-top:10px">
+            <span>${aman(i.nama_menu)} x ${i.jumlah}</span><span>${rupiah(i.harga_satuan * i.jumlah)}</span>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px solid var(--garis);margin-top:12px;padding-top:12px">
+          <span>Total</span><span>${rupiah(p.total)}</span>
+        </div>
+        <p style="margin:12px 0 0">Metode bayar: <strong>${p.metode_bayar === 'qris' ? 'QRIS' : 'Cash'}</strong></p>
+        ${p.catatan ? `<p style="margin:4px 0 0">Catatan: ${aman(p.catatan)}</p>` : ''}
+      </div>
+
+      ${tampilQris ? `
+        <div class="kartu" style="margin-bottom:12px;text-align:center">
+          <strong>Bayar dengan QRIS</strong>
+          <p class="lembut">Scan kode ini saat mengambil pesananmu.</p>
+          <img src="${aman(kantin.qris_url)}" alt="QRIS ${aman(kantin.nama_kantin)}" style="max-width:280px;width:100%;margin:0 auto;border-radius:12px;border:1px solid var(--garis)">
+        </div>` : ''}
+
+      <p style="text-align:center"><a class="tombol tombol-aksen" href="kantin.html">Pesan lagi</a></p>`;
+    document.getElementById('perbarui').addEventListener('click', async (e) => {
+      tombolSibuk(e.target, true, 'Memperbarui...');
+      await muat();
+      tampilToast('Status diperbarui', 'sukses');
+    });
+  }
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('pembeli');
+    if (!profil) return;
+    await siapkanKeranjang();
+    pasangNavPembeli('kantin');
+    document.body.hidden = false;
+    tampilLoading(isi);
+    muat();
+  })();
+</script>
+</body></html>
