@@ -7,8 +7,7 @@
 <main class="container">
   <div class="kartu" style="margin-top:16px">
     <h1 id="sapaan">Halo</h1>
-    <p class="lembut">Dashboard ringkasan dibuat di langkah berikutnya. Untuk sekarang, kamu sudah bisa mengelola pendaftaran penjual.</p>
-    <a class="tombol tombol-aksen" href="persetujuan.html">Persetujuan penjual</a>
+    <p class="lembut">Kamu masuk sebagai penjual. Dashboard pesanan dibuat di langkah berikutnya.</p>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -19,7 +18,7 @@
 <script>
   (async () => {
     pasangHeader(true);
-    const profil = await wajibPeran('pengelola');
+    const profil = await wajibPeran('penjual');
     if (!profil) return;
     document.getElementById('sapaan').textContent = 'Halo, ' + profil.nama;
     document.body.hidden = false;
