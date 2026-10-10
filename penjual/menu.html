@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Kelola Menu - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css">
+<style>
+  dialog{border:0;border-radius:20px;padding:20px;width:calc(100% - 32px);max-width:480px;font-family:inherit;color:inherit}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+</style></head>
+<body hidden>
+<main class="container">
+  <p style="margin:8px 0"><a href="dashboard.html">Kembali ke dashboard</a></p>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+    <h1 style="margin:0;font-size:1.8rem">Kelola menu</h1>
+    <button class="tombol tombol-aksen" id="tambah">Tambah menu</button>
+  </div>
+  <div id="daftar"></div>
+</main>
+
+<dialog id="dialog">
+  <form id="form">
+    <h2 id="judul-dialog"></h2>
+    <div class="field"><label for="nama">Nama menu</label><input class="input" id="nama" maxlength="100" required></div>
+    <div class="field"><label for="deskripsi">Deskripsi (boleh kosong)</label><input class="input" id="deskripsi" maxlength="150"></div>
+    <div class="field"><label for="harga">Harga (Rp)</label><input class="input" id="harga" type="number" inputmode="numeric" min="0" max="1000000" step="1" required></div>
+    <div class="field"><label for="kategori">Kategori</label>
+      <select class="input" id="kategori" required>
+        <option value="makanan berat">Makanan berat</option><option value="jajanan">Jajanan</option><option value="minuman">Minuman</option>
+      </select></div>
+    <div class="field"><label for="stok">Stok (kosongkan jika tidak dibatasi)</label><input class="input" id="stok" type="number" inputmode="numeric" min="0" step="1"></div>
+    <div class="field"><label for="foto">Foto makanan</label>
+      <img id="pratinjau" alt="Pratinjau foto" hidden style="max-width:160px;border-radius:12px;margin-bottom:8px">
+      <input class="input" id="foto" type="file" accept="image/png,image/jpeg,image/webp"></div>
+    <div class="baris-tombol">
+      <button class="tombol tombol-aksen" type="submit">Simpan</button>
+      <button class="tombol tombol-garis" type="button" id="batal">Batal</button>
+    </div>
+  </form>
+</dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script src="../js/unggah.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const daftar = $('daftar'), dialog = $('dialog');
+  let kantin = null, uid = null, menu = [], sedangUbah = null;
+
+  async function muat() {
+    tampilLoading(daftar);
+    const { data, error } = await db.from('menu').select('*').eq('kantin_id', kantin.id)
+      .order('dibuat_pada', { ascending: false });
+    if (error) return tampilKosong(daftar, 'Menu gagal dimuat', error.message);
+    menu = data;
+    gambar();
+  }
+
+  function gambar() {
+    if (!menu.length) return tampilKosong(daftar, 'Belum ada menu', 'Klik "Tambah menu" untuk mulai berjualan.');
+    daftar.innerHTML = '<div class="grid-menu">' + menu.map((m) => {
+      const foto = m.foto_url
+        ? `<img class="foto" src="${aman(m.foto_url)}" alt="${aman(m.nama)}" loading="lazy">`
+        : '<div class="foto">Tanpa foto</div>';
+      const stok = m.stok === null ? 'Stok tidak dibatasi' : 'Stok: ' + m.stok;
+      return `<div class="kartu-menu ${m.habis ? 'habis' : ''}">${foto}
+        <div class="isi">
+          <span class="nama">${aman(m.nama)}</span>
+          <span class="lembut">${aman(m.kategori)} - ${stok}</span>
+          ${m.habis ? '<span class="label label-habis">Habis</span>' : ''}
+          <span class="harga">${rupiah(m.harga)}</span>
+          <div class="baris-tombol" style="margin-top:8px">
+            <button class="tombol tombol-garis" data-aksi="ubah" data-id="${m.id}">Ubah</button>
+            <button class="tombol tombol-garis" data-aksi="habis" data-id="${m.id}">${m.habis ? 'Tersedia lagi' : 'Tandai habis'}</button>
+            <button class="tombol tombol-garis" data-aksi="hapus" data-id="${m.id}">Hapus</button>
+          </div>
+        </div></div>`;
+    }).join('') + '</div>';
+  }
+
+  function bukaForm(m) {
+    sedangUbah = m;
+    $('form').reset();
+    $('judul-dialog').textContent = m ? 'Ubah menu' : 'Tambah menu';
+    if (m) {
+      $('nama').value = m.nama; $('deskripsi').value = m.deskripsi || '';
+      $('harga').value = m.harga; $('kategori').value = m.kategori;
+      $('stok').value = m.stok === null ? '' : m.stok;
+    }
+    $('pratinjau').hidden = !(m && m.foto_url);
+    if (m && m.foto_url) $('pratinjau').src = m.foto_url;
+    dialog.showModal();
+  }
+
+  $('tambah').addEventListener('click', () => bukaForm(null));
+  $('batal').addEventListener('click', () => dialog.close());
+  $('foto').addEventListener('change', (e) => {
+    const b = e.target.files[0];
+    $('pratinjau').hidden = !b;
+    if (b) $('pratinjau').src = URL.createObjectURL(b);
+  });
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const harga = Number($('harga').value);
+    const stokTeks = $('stok').value.trim();
+    const stok = stokTeks === '' ? null : Number(stokTeks);
+    if (!Number.isInteger(harga) || harga < 0 || harga > 1000000) return tampilToast('Harga harus bilangan bulat 0 sampai 1.000.000', 'gagal');
+    if (stok !== null && (!Number.isInteger(stok) || stok < 0)) return tampilToast('Stok harus bilangan bulat, 0 atau lebih', 'gagal');
+
+    const tombol = e.target.querySelector('button[type=submit]');
+    tombolSibuk(tombol, true, 'Menyimpan...');
+    try {
+      const berkas = $('foto').files[0];
+      const fotoLama = sedangUbah ? sedangUbah.foto_url : null;
+      const isi = {
+        nama: $('nama').value.trim(),
+        deskripsi: $('deskripsi').value.trim() || null,
+        harga, stok, kategori: $('kategori').value,
+        foto_url: berkas ? await unggahGambar(uid, 'menu', berkas, 1000, 0.82) : fotoLama
+      };
+      // Stok diisi/diubah: stok 0 = habis, stok lebih dari 0 = tersedia
+      if (stok !== null && (!sedangUbah || stok !== sedangUbah.stok)) isi.habis = stok === 0;
+
+      const { error } = sedangUbah
+        ? await db.from('menu').update(isi).eq('id', sedangUbah.id)
+        : await db.from('menu').insert({ ...isi, kantin_id: kantin.id });
+      if (error) throw error;
+      if (berkas && fotoLama) await hapusGambar(fotoLama);
+      dialog.close();
+      tampilToast('Menu disimpan', 'sukses');
+      muat();
+    } catch (err) {
+      tampilToast('Gagal menyimpan: ' + err.message, 'gagal');
+    }
+    tombolSibuk(tombol, false);
+  });
+
+  daftar.addEventListener('click', async (e) => {
+    const t = e.target.closest('[data-aksi]');
+    if (!t) return;
+    const m = menu.find((x) => x.id === t.dataset.id);
+    if (t.dataset.aksi === 'ubah') return bukaForm(m);
+
+    if (t.dataset.aksi === 'habis') {
+      if (m.habis && m.stok === 0) return tampilToast('Stoknya 0. Isi stok dulu lewat tombol Ubah.', 'gagal');
+      const { error } = await db.from('menu').update({ habis: !m.habis }).eq('id', m.id);
+      if (error) return tampilToast('Gagal: ' + error.message, 'gagal');
+      return muat();
+    }
+    if (t.dataset.aksi === 'hapus') {
+      if (!confirm('Hapus menu "' + m.nama + '"?')) return;
+      const { data, error } = await db.from('menu').delete().eq('id', m.id).select('id');
+      if (error || !data || !data.length) return tampilToast('Gagal menghapus. ' + (error ? error.message : ''), 'gagal');
+      await hapusGambar(m.foto_url);
+      tampilToast('Menu dihapus', 'sukses');
+      muat();
+    }
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('penjual');
+    if (!profil) return;
+    const { data: { session } } = await db.auth.getSession();
+    uid = session.user.id;
+    const { data, error } = await db.from('kantin').select('id').eq('pemilik_id', uid).single();
+    document.body.hidden = false;
+    if (error) return tampilKosong(daftar, 'Kantin tidak ditemukan', error.message);
+    kantin = data;
+    muat();
+  })();
+</script>
+</body></html>
