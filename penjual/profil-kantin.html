@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Profil Kantin - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <p style="margin:8px 0"><a href="dashboard.html">Kembali ke dashboard</a></p>
+  <h1 style="font-size:1.8rem">Profil kantin</h1>
+
+  <div class="kartu" style="margin-bottom:16px">
+    <h2>Status kantin</h2>
+    <p id="teks-status"></p>
+    <button id="tombol-buka" class="tombol tombol-penuh"></button>
+  </div>
+
+  <form id="form" class="kartu">
+    <div class="field"><label for="nama">Nama kantin / lapak</label><input class="input" id="nama" maxlength="60" required></div>
+    <div class="field"><label for="deskripsi">Deskripsi singkat</label><textarea class="input" id="deskripsi" rows="3" maxlength="200" placeholder="contoh: Nasi goreng, mie, dan minuman dingin"></textarea></div>
+    <div class="field">
+      <label for="qris">Gambar QRIS</label>
+      <img id="pratinjau-qris" alt="QRIS kantin" hidden style="max-width:240px;border-radius:12px;border:1px solid var(--garis);margin-bottom:8px">
+      <input class="input" type="file" id="qris" accept="image/png,image/jpeg,image/webp">
+      <p class="lembut" style="margin:6px 0 0">Tanpa QRIS, pembeli hanya bisa memilih bayar Cash.</p>
+      <button type="button" id="hapus-qris" class="tombol tombol-garis" hidden style="margin-top:8px">Hapus QRIS</button>
+    </div>
+    <button class="tombol tombol-aksen tombol-penuh" type="submit">Simpan</button>
+  </form>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script src="../js/unggah.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let kantin = null, uid = null;
+
+  function tampilStatus() {
+    $('teks-status').innerHTML = kantin.sedang_buka
+      ? '<span class="label label-sukses">Buka</span> Pembeli bisa memesan.'
+      : '<span class="label label-habis">Tutup</span> Pembeli belum bisa memesan.';
+    const t = $('tombol-buka');
+    t.textContent = kantin.sedang_buka ? 'Tutup kantin' : 'Buka kantin';
+    t.className = 'tombol tombol-penuh ' + (kantin.sedang_buka ? 'tombol-garis' : 'tombol-utama');
+  }
+  function tampilForm() {
+    $('nama').value = kantin.nama_kantin;
+    $('deskripsi').value = kantin.deskripsi || '';
+    $('pratinjau-qris').hidden = !kantin.qris_url;
+    $('hapus-qris').hidden = !kantin.qris_url;
+    if (kantin.qris_url) $('pratinjau-qris').src = kantin.qris_url;
+    $('qris').value = '';
+  }
+
+  $('tombol-buka').addEventListener('click', async (e) => {
+    tombolSibuk(e.target, true, 'Menyimpan...');
+    const { data, error } = await db.from('kantin').update({ sedang_buka: !kantin.sedang_buka })
+      .eq('id', kantin.id).select().single();
+    if (error) tampilToast('Gagal: ' + error.message, 'gagal');
+    else { kantin = data; tampilToast(kantin.sedang_buka ? 'Kantin dibuka' : 'Kantin ditutup', 'sukses'); }
+    tampilStatus();
+  });
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const tombol = e.target.querySelector('button[type=submit]');
+    tombolSibuk(tombol, true, 'Menyimpan...');
+    try {
+      let qrisUrl = kantin.qris_url;
+      const berkas = $('qris').files[0];
+      if (berkas) qrisUrl = await unggahGambar(uid, 'qris', berkas, 1200, 0.9);
+      const { data, error } = await db.from('kantin').update({
+        nama_kantin: $('nama').value.trim(),
+        deskripsi: $('deskripsi').value.trim() || null,
+        qris_url: qrisUrl
+      }).eq('id', kantin.id).select().single();
+      if (error) throw error;
+      if (berkas) await hapusGambar(kantin.qris_url);
+      kantin = data;
+      tampilForm();
+      tampilToast('Profil kantin disimpan', 'sukses');
+    } catch (err) {
+      tampilToast('Gagal menyimpan: ' + err.message, 'gagal');
+    }
+    tombolSibuk(tombol, false);
+  });
+
+  $('hapus-qris').addEventListener('click', async () => {
+    if (!confirm('Hapus gambar QRIS? Pembeli tidak bisa memilih QRIS lagi.')) return;
+    const { data, error } = await db.from('kantin').update({ qris_url: null }).eq('id', kantin.id).select().single();
+    if (error) return tampilToast('Gagal: ' + error.message, 'gagal');
+    await hapusGambar(kantin.qris_url);
+    kantin = data;
+    tampilForm();
+    tampilToast('QRIS dihapus', 'sukses');
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('penjual');
+    if (!profil) return;
+    const { data: { session } } = await db.auth.getSession();
+    uid = session.user.id;
+    const { data, error } = await db.from('kantin').select('*').eq('pemilik_id', uid).single();
+    document.body.hidden = false;
+    if (error) return tampilToast('Kantin tidak ditemukan: ' + error.message, 'gagal');
+    kantin = data;
+    tampilStatus();
+    tampilForm();
+  })();
+</script>
+</body></html>
