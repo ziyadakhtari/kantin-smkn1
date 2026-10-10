@@ -5,6 +5,7 @@
 <title>Pesanan - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
 <body hidden>
 <main class="container">
+  <p style="margin:8px 0"><a href="riwayat.html">Kembali ke riwayat</a></p>
   <div id="isi"></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -19,16 +20,22 @@
     siap_diambil: ['Siap diambil', 'label-sukses'], selesai: ['Selesai', 'label-sukses'],
     dibatalkan: ['Dibatalkan', 'label-habis']
   };
+  const idPesanan = new URLSearchParams(location.search).get('id') || '';
+  let statusTerakhir = null, otomatis = false, kanal = null;
 
   async function muat() {
-    const id = new URLSearchParams(location.search).get('id');
-    const { data: p, error } = await db.from('pesanan').select('*').eq('id', id || '').maybeSingle();
+    const { data: p, error } = await db.from('pesanan').select('*').eq('id', idPesanan).maybeSingle();
     if (error || !p) return tampilKosong(isi, 'Pesanan tidak ditemukan', 'Mungkin ini bukan pesananmu.');
     const [it, k] = await Promise.all([
       db.from('item_pesanan').select('nama_menu, jumlah, harga_satuan').eq('pesanan_id', p.id).order('nama_menu'),
       db.from('kantin').select('nama_kantin, qris_url').eq('id', p.kantin_id).maybeSingle()
     ]);
     gambar(p, it.data || [], k.data);
+    if (statusTerakhir && statusTerakhir !== p.status) {
+      if (p.status === 'siap_diambil') tampilToast('Pesananmu siap diambil!', 'sukses');
+      else tampilToast('Status pesanan: ' + STATUS[p.status][0]);
+    }
+    statusTerakhir = p.status;
   }
 
   function gambar(p, item, kantin) {
@@ -44,10 +51,8 @@
         <div class="garis-putus"></div>
         <span class="label ${kelasStatus}">${teksStatus}</span>
       </div>
-      <p class="lembut" style="text-align:center">Sebutkan nomor antreanmu saat mengambil pesanan di kantin.</p>
-      <div class="baris-tombol" style="justify-content:center;margin-bottom:16px">
-        <button class="tombol tombol-garis" id="perbarui">Perbarui status</button>
-      </div>
+      <p class="lembut" style="text-align:center;margin-bottom:8px">Sebutkan nomor antreanmu saat mengambil pesanan di kantin.</p>
+      <p id="kontrol-status" style="text-align:center;margin-bottom:16px"></p>
 
       <div class="kartu" style="margin-bottom:12px">
         <strong>Rincian pesanan</strong>
@@ -70,23 +75,56 @@
           <img src="${aman(kantin.qris_url)}" alt="QRIS ${aman(kantin.nama_kantin)}" style="max-width:280px;width:100%;margin:0 auto;border-radius:12px;border:1px solid var(--garis)">
         </div>` : ''}
 
+      ${p.status === 'diterima' ? `
+        <button class="tombol tombol-garis tombol-penuh" id="batalkan">Batalkan pesanan</button>
+        <p class="lembut" style="margin:6px 0 16px;text-align:center">Pesanan hanya bisa dibatalkan selama berstatus Diterima.</p>` : ''}
+
       <p style="text-align:center"><a class="tombol tombol-aksen" href="kantin.html">Pesan lagi</a></p>`;
-    document.getElementById('perbarui').addEventListener('click', async (e) => {
-      tombolSibuk(e.target, true, 'Memperbarui...');
-      await muat();
-      tampilToast('Status diperbarui', 'sukses');
-    });
+    tampilKontrol();
   }
+
+  // Kalau realtime jalan: status berubah sendiri. Kalau tidak: tampilkan tombol manual.
+  function tampilKontrol() {
+    const el = document.getElementById('kontrol-status');
+    if (!el) return;
+    el.innerHTML = otomatis
+      ? '<span class="lembut">Status diperbarui otomatis.</span>'
+      : '<button class="tombol tombol-garis" id="perbarui">Perbarui status</button>';
+  }
+
+  function mulaiRealtime() {
+    kanal = db.channel('pesanan-' + idPesanan)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pesanan', filter: 'id=eq.' + idPesanan }, () => muat())
+      .subscribe((status) => { otomatis = status === 'SUBSCRIBED'; tampilKontrol(); });
+  }
+
+  isi.addEventListener('click', async (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.id === 'perbarui') { tombolSibuk(t, true, 'Memperbarui...'); await muat(); }
+    if (t.id === 'batalkan') {
+      if (!confirm('Batalkan pesanan ini?')) return;
+      tombolSibuk(t, true, 'Membatalkan...');
+      const { error } = await db.rpc('batalkan_pesanan', { p_pesanan_id: idPesanan });
+      if (error) { tampilToast(error.message, 'gagal'); tombolSibuk(t, false); }
+      else tampilToast('Pesanan dibatalkan', 'sukses');
+      muat();
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) muat(); });
+  window.addEventListener('pagehide', () => { if (kanal) db.removeChannel(kanal); });
 
   (async () => {
     pasangHeader(true);
     const profil = await wajibPeran('pembeli');
     if (!profil) return;
     await siapkanKeranjang();
-    pasangNavPembeli('kantin');
+    pasangNavPembeli('riwayat');
     document.body.hidden = false;
     tampilLoading(isi);
-    muat();
+    await muat();
+    mulaiRealtime();
   })();
 </script>
 </body></html>
