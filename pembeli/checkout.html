@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Pembayaran - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <p style="margin:8px 0"><a href="keranjang.html">Kembali ke keranjang</a></p>
+  <h1 style="font-size:1.8rem">Pembayaran</h1>
+  <div id="isi"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script src="../js/keranjang.js"></script>
+<script>
+  const isi = document.getElementById('isi');
+  let kantin = null, keranjang = null;
+
+  async function mulai() {
+    keranjang = bacaKeranjang();
+    if (!keranjang.item.length) return location.replace('keranjang.html');
+    tampilLoading(isi);
+    const { data, error } = await db.from('kantin').select('id, nama_kantin, sedang_buka, qris_url')
+      .eq('id', keranjang.kantinId).maybeSingle();
+    if (error || !data) return tampilKosong(isi, 'Kantin tidak ditemukan', 'Kosongkan keranjang lalu pilih kantin lagi.');
+    kantin = data;
+    gambar();
+  }
+
+  function gambar() {
+    const adaQris = !!kantin.qris_url;
+    isi.innerHTML = `
+      <div class="kartu" style="margin-bottom:12px">
+        <strong>Pesanan dari ${aman(kantin.nama_kantin)}</strong>
+        ${keranjang.item.map((i) => `
+          <div style="display:flex;justify-content:space-between;gap:12px;padding-top:10px">
+            <span>${aman(i.nama)} x ${i.jumlah}</span><span>${rupiah(i.harga * i.jumlah)}</span>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px solid var(--garis);margin-top:12px;padding-top:12px">
+          <span>Perkiraan total</span><span>${rupiah(totalHarga(keranjang))}</span>
+        </div>
+      </div>
+      ${kantin.sedang_buka ? '' : '<div class="status-kotak gagal" style="margin-bottom:12px">Kantin sedang tutup, jadi pesanan belum bisa dikirim.</div>'}
+      <div id="galat" class="status-kotak gagal" hidden style="margin-bottom:12px"></div>
+      <form id="form">
+        <div class="field">
+          <label for="catatan">Catatan untuk penjual (boleh kosong)</label>
+          <textarea class="input" id="catatan" name="catatan" rows="2" maxlength="200" placeholder="contoh: tidak pedas"></textarea>
+        </div>
+        <p style="font-weight:600;margin:0 0 8px">Metode bayar</p>
+        <label class="kartu" style="display:flex;gap:12px;align-items:center;padding:14px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="metode" value="cash" checked style="width:22px;height:22px">
+          <span><strong>Cash</strong><br><span class="lembut">Bayar tunai saat mengambil pesanan</span></span>
+        </label>
+        <label class="kartu" style="display:flex;gap:12px;align-items:center;padding:14px;margin-bottom:12px;cursor:${adaQris ? 'pointer' : 'not-allowed'};${adaQris ? '' : 'opacity:.6'}">
+          <input type="radio" name="metode" value="qris" ${adaQris ? '' : 'disabled'} style="width:22px;height:22px">
+          <span><strong>QRIS</strong><br><span class="lembut">${adaQris ? 'Bayar lewat QRIS saat mengambil pesanan' : 'Kantin ini belum menyediakan QRIS'}</span></span>
+        </label>
+        <p class="lembut" style="margin:0 0 12px">Pembayaran dilakukan langsung di kantin saat kamu mengambil pesanan. Harga akhir dihitung ulang oleh sistem saat pesanan dikirim.</p>
+        <button class="tombol tombol-aksen tombol-penuh" type="submit" ${kantin.sedang_buka ? '' : 'disabled'}>Kirim pesanan</button>
+      </form>`;
+  }
+
+  isi.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const galat = document.getElementById('galat');
+    galat.hidden = true;
+    const f = e.target.elements;
+    const tombol = e.target.querySelector('button[type=submit]');
+    tombolSibuk(tombol, true, 'Mengirim pesanan...');
+
+    const { data, error } = await db.rpc('buat_pesanan', {
+      p_kantin_id: keranjang.kantinId,
+      p_metode_bayar: f.metode.value,
+      p_catatan: f.catatan.value.trim(),
+      p_item: keranjang.item.map((i) => ({ menu_id: i.id, jumlah: i.jumlah }))
+    });
+    if (error) {
+      galat.textContent = error.message + ' Periksa keranjangmu, lalu coba lagi.';
+      galat.hidden = false;
+      galat.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return tombolSibuk(tombol, false);
+    }
+    kosongkanKeranjang();
+    location.replace('pesanan.html?id=' + encodeURIComponent(data.pesanan_id));
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('pembeli');
+    if (!profil) return;
+    await siapkanKeranjang();
+    pasangNavPembeli('keranjang');
+    document.body.hidden = false;
+    mulai();
+  })();
+</script>
+</body></html>
