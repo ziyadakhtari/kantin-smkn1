@@ -2,26 +2,46 @@
 <html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<title>Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<title>Pilih Kantin - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
 <body hidden>
 <main class="container">
-  <div class="kartu" style="margin-top:16px">
-    <h1 id="sapaan">Halo</h1>
-    <p class="lembut">Kamu masuk sebagai pembeli. Daftar kantin dan menu dibuat di langkah berikutnya.</p>
-  </div>
+  <h1 id="sapaan" style="font-size:1.8rem;margin-top:12px">Halo</h1>
+  <p class="lembut">Pilih kantin yang sedang buka.</p>
+  <div id="daftar"></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase-client.js"></script>
 <script src="../js/ui.js"></script>
 <script src="../js/guard.js"></script>
-<script src="../js/auth.js"></script>
+<script src="../js/keranjang.js"></script>
 <script>
+  const daftar = document.getElementById('daftar');
+
+  async function muat() {
+    tampilLoading(daftar);
+    const { data, error } = await db.from('kantin')
+      .select('id, nama_kantin, deskripsi, qris_url')
+      .eq('sedang_buka', true).order('nama_kantin');
+    if (error) return tampilKosong(daftar, 'Daftar kantin gagal dimuat', error.message);
+    if (!data.length) return tampilKosong(daftar, 'Belum ada kantin yang buka', 'Coba lagi nanti ya.');
+    daftar.innerHTML = '<div class="grid-menu">' + data.map((k) => `
+      <a class="kartu" href="menu.html?kantin=${k.id}" style="text-decoration:none;color:inherit;display:block">
+        <span class="label label-sukses">Buka</span>
+        <h2 style="margin:8px 0 4px">${aman(k.nama_kantin)}</h2>
+        <p class="lembut" style="margin:0 0 8px">${aman(k.deskripsi || 'Belum ada deskripsi.')}</p>
+        <span class="label label-aksen">${k.qris_url ? 'Cash dan QRIS' : 'Cash saja'}</span>
+      </a>`).join('') + '</div>';
+  }
+
   (async () => {
     pasangHeader(true);
     const profil = await wajibPeran('pembeli');
     if (!profil) return;
+    await siapkanKeranjang();
+    pasangNavPembeli('kantin');
     document.getElementById('sapaan').textContent = 'Halo, ' + profil.nama;
     document.body.hidden = false;
+    muat();
   })();
 </script>
 </body></html>
