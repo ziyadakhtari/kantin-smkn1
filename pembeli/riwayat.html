@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Riwayat - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <h1 style="font-size:1.8rem;margin-top:12px">Riwayat pesanan</h1>
+  <div id="isi"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script src="../js/keranjang.js"></script>
+<script>
+  const isi = document.getElementById('isi');
+  const STATUS = {
+    diterima: ['Diterima', 'label-aksen'], diproses: ['Diproses', 'label-aksen'],
+    siap_diambil: ['Siap diambil', 'label-sukses'], selesai: ['Selesai', 'label-sukses'],
+    dibatalkan: ['Dibatalkan', 'label-habis']
+  };
+  const BERJALAN = ['diterima', 'diproses', 'siap_diambil'];
+
+  async function muat() {
+    tampilLoading(isi);
+    // Aturan keamanan database memastikan yang muncul hanya pesananmu sendiri
+    const { data: psn, error } = await db.from('pesanan')
+      .select('id, kantin_id, nomor_antrean, status, metode_bayar, total, dibuat_pada')
+      .order('dibuat_pada', { ascending: false }).limit(50);
+    if (error) return tampilKosong(isi, 'Riwayat gagal dimuat', error.message);
+    if (!psn.length) {
+      tampilKosong(isi, 'Belum ada pesanan', 'Pesanan yang kamu buat akan muncul di sini.');
+      return isi.insertAdjacentHTML('beforeend', '<p style="text-align:center"><a class="tombol tombol-aksen" href="kantin.html">Lihat kantin</a></p>');
+    }
+    const [k, it] = await Promise.all([
+      db.from('kantin').select('id, nama_kantin').in('id', [...new Set(psn.map((p) => p.kantin_id))]),
+      db.from('item_pesanan').select('pesanan_id, nama_menu, jumlah').in('pesanan_id', psn.map((p) => p.id))
+    ]);
+    const namaKantin = Object.fromEntries((k.data || []).map((x) => [x.id, x.nama_kantin]));
+    const ringkas = {};
+    (it.data || []).forEach((x) => { (ringkas[x.pesanan_id] = ringkas[x.pesanan_id] || []).push(x.nama_menu + ' x' + x.jumlah); });
+
+    const kartu = (p) => {
+      const [teks, kelas] = STATUS[p.status] || [p.status, ''];
+      const waktu = new Date(p.dibuat_pada).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `<a class="kartu" href="pesanan.html?id=${p.id}" style="display:block;text-decoration:none;color:inherit;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+          <strong>${aman(namaKantin[p.kantin_id] || 'Kantin')}</strong><span class="label ${kelas}">${teks}</span>
+        </div>
+        <p class="lembut" style="margin:4px 0">No. antrean ${String(p.nomor_antrean).padStart(2, '0')} - ${waktu}</p>
+        <p style="margin:0 0 8px">${aman((ringkas[p.id] || []).join(', '))}</p>
+        <strong>${rupiah(p.total)}</strong> <span class="lembut">- ${p.metode_bayar === 'qris' ? 'QRIS' : 'Cash'}</span>
+      </a>`;
+    };
+    const berjalan = psn.filter((p) => BERJALAN.includes(p.status));
+    const lainnya = psn.filter((p) => !BERJALAN.includes(p.status));
+    isi.innerHTML =
+      (berjalan.length ? '<h2>Sedang berjalan</h2>' + berjalan.map(kartu).join('') : '') +
+      (lainnya.length ? '<h2 style="margin-top:20px">Riwayat</h2>' + lainnya.map(kartu).join('') : '') +
+      (psn.length === 50 ? '<p class="lembut" style="text-align:center">Menampilkan 50 pesanan terakhir.</p>' : '');
+  }
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('pembeli');
+    if (!profil) return;
+    await siapkanKeranjang();
+    pasangNavPembeli('riwayat');
+    document.body.hidden = false;
+    muat();
+  })();
+</script>
+</body></html>
