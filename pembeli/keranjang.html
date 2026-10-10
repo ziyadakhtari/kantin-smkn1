@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Keranjang - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <h1 style="font-size:1.8rem;margin-top:12px">Keranjang</h1>
+  <div id="isi"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script src="../js/keranjang.js"></script>
+<script>
+  const isi = document.getElementById('isi');
+  const kecil = 'min-height:40px;padding:0 14px';
+
+  function gambar() {
+    const k = bacaKeranjang();
+    if (!k.item.length) {
+      tampilKosong(isi, 'Keranjang masih kosong', 'Pilih menu dari kantin yang sedang buka.');
+      isi.insertAdjacentHTML('beforeend', '<p style="text-align:center"><a class="tombol tombol-aksen" href="kantin.html">Lihat kantin</a></p>');
+      return;
+    }
+    isi.innerHTML = `
+      <div class="kartu" style="margin-bottom:12px">
+        <strong>Pesanan dari ${aman(k.kantinNama)}</strong>
+        ${k.item.map((i) => `
+          <div style="display:flex;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--garis);margin-top:12px">
+            ${i.foto ? `<img src="${aman(i.foto)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:10px">`
+                      : '<div style="width:56px;height:56px;border-radius:10px;background:#e8eef8"></div>'}
+            <div style="flex:1;min-width:0">
+              <div class="nama" style="font-weight:700">${aman(i.nama)}</div>
+              <div class="lembut">${rupiah(i.harga)} x ${i.jumlah} = <strong>${rupiah(i.harga * i.jumlah)}</strong></div>
+              <div class="baris-tombol" style="margin-top:6px;align-items:center;gap:8px">
+                <button class="tombol tombol-garis" style="${kecil}" data-kurang="${i.id}" aria-label="Kurangi">-</button>
+                <strong>${i.jumlah}</strong>
+                <button class="tombol tombol-garis" style="${kecil}" data-tambah="${i.id}" aria-label="Tambah">+</button>
+                <button class="tombol tombol-garis" style="${kecil}" data-hapus="${i.id}">Hapus</button>
+              </div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="kartu">
+        <div style="display:flex;justify-content:space-between;font-size:1.2rem;font-weight:800;margin-bottom:12px">
+          <span>Total</span><span>${rupiah(totalHarga(k))}</span>
+        </div>
+        <button class="tombol tombol-aksen tombol-penuh" disabled>Lanjut ke pembayaran</button>
+        <p class="lembut" style="margin:8px 0 12px">Pembayaran dan nomor antrean dibuat di langkah berikutnya. Harga akhir dihitung ulang saat pesanan dikirim.</p>
+        <button class="tombol tombol-garis tombol-penuh" id="kosongkan">Kosongkan keranjang</button>
+      </div>`;
+  }
+
+  isi.addEventListener('click', (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.dataset.tambah && !ubahJumlah(t.dataset.tambah, 1)) tampilToast('Jumlah sudah mencapai batas stok', 'gagal');
+    if (t.dataset.kurang) ubahJumlah(t.dataset.kurang, -1);
+    if (t.dataset.hapus) hapusItem(t.dataset.hapus);
+    if (t.id === 'kosongkan' && confirm('Kosongkan semua isi keranjang?')) kosongkanKeranjang();
+    gambar();
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('pembeli');
+    if (!profil) return;
+    await siapkanKeranjang();
+    pasangNavPembeli('keranjang');
+    document.body.hidden = false;
+    gambar();
+  })();
+</script>
+</body></html>
