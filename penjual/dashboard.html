@@ -2,30 +2,180 @@
 <html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<title>Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<title>Pesanan masuk - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
 <body hidden>
 <main class="container">
-  <div class="kartu" style="margin-top:16px">
-    <h1 id="sapaan">Halo</h1>
-    <p class="lembut">Dashboard pesanan dibuat di langkah berikutnya. Untuk sekarang, siapkan kantinmu dulu.</p>
-    <div class="baris-tombol">
-      <a class="tombol tombol-aksen" href="profil-kantin.html">Profil kantin</a>
-      <a class="tombol tombol-utama" href="menu.html">Kelola menu</a>
+  <div class="kartu" style="margin:16px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div>
+        <h1 id="nama-kantin" style="font-size:1.6rem;margin:0 0 4px">Kantin</h1>
+        <span id="label-buka"></span>
+      </div>
+      <button id="tombol-buka" class="tombol"></button>
     </div>
+    <div class="baris-tombol" style="margin-top:12px">
+      <a class="tombol tombol-garis" href="menu.html">Kelola menu</a>
+      <a class="tombol tombol-garis" href="profil-kantin.html">Profil kantin</a>
+      <button id="tombol-bunyi" class="tombol tombol-garis">Aktifkan bunyi notifikasi</button>
+    </div>
+    <p id="indikator" class="lembut" style="margin:8px 0 0"></p>
   </div>
+
+  <h2 id="judul-pesanan">Pesanan masuk</h2>
+  <div id="daftar"></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase-client.js"></script>
 <script src="../js/ui.js"></script>
 <script src="../js/guard.js"></script>
-<script src="../js/unggah.js"></script>
 <script>
+  const $ = (id) => document.getElementById(id);
+  const JUDUL = 'Pesanan masuk - Kantin SMKN 1 Cimahi';
+  const STATUS = { diterima: ['Diterima', 'label-aksen'], diproses: ['Diproses', 'label-aksen'], siap_diambil: ['Siap diambil', 'label-sukses'] };
+  // status sekarang -> [status berikutnya, tulisan tombol]
+  const LANJUT = { diterima: ['diproses', 'Proses pesanan'], diproses: ['siap_diambil', 'Siap diambil'], siap_diambil: ['selesai', 'Selesai (sudah dibayar)'] };
+  let kantin = null, pesanan = [], itemPer = {}, idDikenal = null, ctxAudio = null, kanal = null;
+
+  // ---------- Bunyi notifikasi ----------
+  // Browser hanya mengizinkan bunyi setelah pengguna menekan tombol, jadi perlu diaktifkan dulu.
+  function bunyi() {
+    if (!ctxAudio) return;
+    [880, 1175].forEach((frek, i) => {
+      const o = ctxAudio.createOscillator(), g = ctxAudio.createGain();
+      const t = ctxAudio.currentTime + i * 0.22;
+      o.type = 'sine'; o.frequency.value = frek;
+      o.connect(g); g.connect(ctxAudio.destination);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      o.start(t); o.stop(t + 0.4);
+    });
+  }
+  $('tombol-bunyi').addEventListener('click', (e) => {
+    if (!ctxAudio) ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+    ctxAudio.resume();
+    bunyi();
+    e.target.textContent = 'Bunyi aktif (ketuk untuk tes)';
+  });
+
+  // ---------- Buka / tutup kantin ----------
+  function tampilStatusKantin() {
+    $('nama-kantin').textContent = kantin.nama_kantin;
+    $('label-buka').innerHTML = kantin.sedang_buka
+      ? '<span class="label label-sukses">Buka</span>'
+      : '<span class="label label-habis">Tutup</span> <span class="lembut">Pembeli belum bisa memesan. Pesanan yang sudah masuk tetap tampil.</span>';
+    const t = $('tombol-buka');
+    t.textContent = kantin.sedang_buka ? 'Tutup kantin' : 'Buka kantin';
+    t.className = 'tombol ' + (kantin.sedang_buka ? 'tombol-garis' : 'tombol-utama');
+  }
+  $('tombol-buka').addEventListener('click', async (e) => {
+    tombolSibuk(e.target, true, 'Menyimpan...');
+    const { data, error } = await db.from('kantin').update({ sedang_buka: !kantin.sedang_buka }).eq('id', kantin.id).select().single();
+    if (error) tampilToast('Gagal: ' + error.message, 'gagal');
+    else { kantin = data; tampilToast(kantin.sedang_buka ? 'Kantin dibuka' : 'Kantin ditutup', 'sukses'); }
+    tombolSibuk(e.target, false);
+    tampilStatusKantin();
+  });
+
+  // ---------- Pesanan ----------
+  async function muat() {
+    const { data, error } = await db.from('pesanan')
+      .select('id, nomor_antrean, nama_pembeli, jenis_pembeli, status, metode_bayar, catatan, total, dibuat_pada')
+      .eq('kantin_id', kantin.id).in('status', ['diterima', 'diproses', 'siap_diambil'])
+      .order('dibuat_pada', { ascending: true });
+    if (error) {
+      if (!pesanan.length) tampilKosong($('daftar'), 'Pesanan gagal dimuat', error.message);
+      return;
+    }
+    const items = {};
+    if (data.length) {
+      const r = await db.from('item_pesanan').select('pesanan_id, nama_menu, jumlah').in('pesanan_id', data.map((p) => p.id));
+      (r.data || []).forEach((x) => { (items[x.pesanan_id] = items[x.pesanan_id] || []).push(x); });
+    }
+    // Pesanan baru = ada di daftar sekarang tapi belum ada saat pemuatan sebelumnya
+    const baru = data.filter((p) => p.status === 'diterima' && idDikenal && !idDikenal.has(p.id));
+    idDikenal = new Set(data.map((p) => p.id));
+    pesanan = data; itemPer = items;
+    gambar();
+    if (baru.length) {
+      bunyi();
+      const no = String(baru[0].nomor_antrean).padStart(2, '0');
+      tampilToast('Pesanan baru: No. ' + no + (baru.length > 1 ? ' dan ' + (baru.length - 1) + ' lainnya' : ''), 'sukses');
+    }
+  }
+
+  function gambar() {
+    const baru = pesanan.filter((p) => p.status === 'diterima').length;
+    $('judul-pesanan').innerHTML = 'Pesanan masuk' + (baru ? ' <span class="label" style="background:var(--aksen);color:#2b1300">' + baru + ' baru</span>' : '');
+    document.title = baru ? '(' + baru + ') Pesanan baru - Kantin SMKN 1 Cimahi' : JUDUL;
+    if (!pesanan.length) return tampilKosong($('daftar'), 'Belum ada pesanan', 'Pesanan baru akan muncul di sini secara otomatis.');
+
+    const sekarang = Date.now();
+    $('daftar').innerHTML = pesanan.map((p) => {
+      const [teks, kelas] = STATUS[p.status];
+      const [berikut, tulisan] = LANJUT[p.status];
+      const menit = Math.max(0, Math.floor((sekarang - new Date(p.dibuat_pada)) / 60000));
+      const jam = new Date(p.dibuat_pada).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+      const jenis = p.jenis_pembeli ? ' (' + aman(p.jenis_pembeli) + ')' : '';
+      return `<div class="kartu" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <span style="font-size:2rem;font-weight:800;color:var(--utama);line-height:1">No. ${String(p.nomor_antrean).padStart(2, '0')}</span>
+          <span class="label ${kelas}">${teks}</span>
+        </div>
+        <p class="lembut" style="margin:6px 0">Masuk ${jam} WIB, ${menit} menit lalu</p>
+        <p style="margin:0 0 8px"><strong>${aman(p.nama_pembeli)}</strong>${jenis}</p>
+        ${(itemPer[p.id] || []).map((i) => `<div>${i.jumlah}x ${aman(i.nama_menu)}</div>`).join('')}
+        ${p.catatan ? `<div class="status-kotak" style="margin-top:8px;background:var(--aksen-muda);color:#7a3a00">Catatan: ${aman(p.catatan)}</div>` : ''}
+        <p style="margin:12px 0"><strong>${rupiah(p.total)}</strong> <span class="label label-aksen">${p.metode_bayar === 'qris' ? 'QRIS' : 'Cash'}</span></p>
+        <div class="baris-tombol">
+          <button class="tombol tombol-utama" data-aksi="${berikut}" data-id="${p.id}">${tulisan}</button>
+          <button class="tombol tombol-garis" data-aksi="dibatalkan" data-id="${p.id}">Batalkan</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  $('daftar').addEventListener('click', async (e) => {
+    const t = e.target.closest('[data-aksi]');
+    if (!t) return;
+    const p = pesanan.find((x) => x.id === t.dataset.id);
+    const baru = t.dataset.aksi;
+    const no = String(p.nomor_antrean).padStart(2, '0');
+    if (baru === 'selesai' && !confirm('Pastikan pembayaran ' + rupiah(p.total) + ' (' + (p.metode_bayar === 'qris' ? 'QRIS' : 'Cash') + ') untuk pesanan No. ' + no + ' sudah diterima.\n\nTandai selesai?')) return;
+    if (baru === 'dibatalkan' && !confirm('Batalkan pesanan No. ' + no + '? Stok menu akan dikembalikan.')) return;
+
+    tombolSibuk(t, true, 'Menyimpan...');
+    const { error } = await db.rpc('ubah_status_pesanan', { p_pesanan_id: p.id, p_status_baru: baru });
+    if (error) tampilToast(error.message, 'gagal');
+    else tampilToast('Status diperbarui', 'sukses');
+    muat();
+  });
+
+  function mulaiRealtime() {
+    kanal = db.channel('pesanan-kantin-' + kantin.id)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pesanan', filter: 'kantin_id=eq.' + kantin.id }, () => muat())
+      .subscribe((status) => {
+        $('indikator').textContent = status === 'SUBSCRIBED' ? 'Terhubung langsung: pesanan baru muncul otomatis.' : 'Memuat ulang otomatis setiap 30 detik.';
+      });
+    // Cadangan: tetap muat ulang berkala dan saat tab kembali dibuka
+    setInterval(muat, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) muat(); });
+    window.addEventListener('pagehide', () => { if (kanal) db.removeChannel(kanal); });
+  }
+
   (async () => {
     pasangHeader(true);
     const profil = await wajibPeran('penjual');
     if (!profil) return;
-    document.getElementById('sapaan').textContent = 'Halo, ' + profil.nama;
+    const { data: { session } } = await db.auth.getSession();
+    const { data, error } = await db.from('kantin').select('id, nama_kantin, sedang_buka').eq('pemilik_id', session.user.id).single();
     document.body.hidden = false;
+    if (error) return tampilKosong($('daftar'), 'Kantin tidak ditemukan', error.message);
+    kantin = data;
+    tampilStatusKantin();
+    tampilLoading($('daftar'));
+    await muat();
+    mulaiRealtime();
   })();
 </script>
 </body></html>
