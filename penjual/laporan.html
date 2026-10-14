@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Laporan - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css">
+<style>
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px 6px;text-align:left;border-top:1px solid var(--garis);vertical-align:top}
+  th{font-weight:600;color:var(--lembut);border-top:0}
+  .kanan{text-align:right}
+  .batang{background:#e8eef8;border-radius:99px;height:10px;overflow:hidden;margin-top:6px}
+  .batang>div{height:100%;background:var(--aksen)}
+</style></head>
+<body hidden>
+<main class="container">
+  <p style="margin:8px 0"><a href="dashboard.html">Kembali ke dashboard</a></p>
+  <h1 style="font-size:1.8rem">Laporan penjualan</h1>
+
+  <div class="kartu" style="margin-bottom:16px">
+    <div class="baris-tombol" id="mode" style="margin-bottom:12px">
+      <button class="tombol" data-mode="harian" style="min-height:40px;padding:0 16px">Harian</button>
+      <button class="tombol" data-mode="mingguan" style="min-height:40px;padding:0 16px">Mingguan (7 hari)</button>
+    </div>
+    <div class="field" style="margin-bottom:8px">
+      <label for="tanggal" id="label-tanggal">Tanggal</label>
+      <input class="input" type="date" id="tanggal">
+    </div>
+    <strong id="periode"></strong>
+  </div>
+
+  <div id="hasil"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const hariIni = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' }); // bentuk YYYY-MM-DD
+  let mode = 'harian', tanggal = hariIni();
+
+  function geser(tgl, hari) {
+    const d = new Date(tgl + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + hari);
+    return d.toISOString().slice(0, 10);
+  }
+  function labelTgl(tgl, pendek) {
+    const opsi = pendek
+      ? { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }
+      : { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' };
+    return new Date(tgl + 'T00:00:00Z').toLocaleDateString('id-ID', opsi);
+  }
+  const bar = (nilai, maks) => '<div class="batang"><div style="width:' + (maks ? Math.round(nilai / maks * 100) : 0) + '%"></div></div>';
+
+  function tampilMode() {
+    document.querySelectorAll('#mode button').forEach((b) => {
+      b.className = 'tombol ' + (b.dataset.mode === mode ? 'tombol-utama' : 'tombol-garis');
+      b.style.minHeight = '40px'; b.style.padding = '0 16px';
+    });
+    $('label-tanggal').textContent = mode === 'harian' ? 'Tanggal' : 'Sampai tanggal (7 hari berakhir di tanggal ini)';
+  }
+
+  async function muat() {
+    const dari = mode === 'harian' ? tanggal : geser(tanggal, -6);
+    $('periode').textContent = mode === 'harian' ? labelTgl(tanggal) : labelTgl(dari) + ' sampai ' + labelTgl(tanggal);
+    tampilLoading($('hasil'));
+    const { data, error } = await db.rpc('laporan_penjualan', { p_dari: dari, p_sampai: tanggal });
+    if (error) return tampilKosong($('hasil'), 'Laporan gagal dimuat', error.message);
+    gambar(data);
+  }
+
+  function gambar(d) {
+    const r = d.ringkasan;
+    const metode = ['cash', 'qris'].map((m) => ({ nama: m === 'qris' ? 'QRIS' : 'Cash', ...(d.per_metode.find((x) => x.metode === m) || { jumlah: 0, total: 0 }) }));
+    const maksMenu = d.menu_terlaris.length ? d.menu_terlaris[0].jumlah : 0;
+    const maksHari = Math.max(0, ...d.per_hari.map((x) => x.pendapatan));
+    const kosong = r.pesanan_selesai === 0;
+
+    const stat = (judul, nilai) => '<div class="kartu" style="padding:14px"><div class="lembut">' + judul + '</div><div style="font-size:1.4rem;font-weight:800;color:var(--utama)">' + nilai + '</div></div>';
+
+    $('hasil').innerHTML =
+      '<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px">' +
+        stat('Pendapatan', rupiah(r.pendapatan)) + stat('Pesanan selesai', r.pesanan_selesai) + stat('Dibatalkan', r.pesanan_dibatalkan) +
+      '</div>' +
+      (kosong ? '<div class="kartu" style="margin-bottom:16px">' + '<div class="kosong"><strong>Belum ada penjualan selesai</strong>Pendapatan hanya dihitung dari pesanan yang sudah ditandai Selesai.</div></div>' : '') +
+
+      '<div class="kartu" style="margin-bottom:16px"><h2>Rincian metode bayar</h2><table>' +
+        '<tr><th>Metode</th><th class="kanan">Pesanan</th><th class="kanan">Total</th></tr>' +
+        metode.map((m) => '<tr><td>' + m.nama + '</td><td class="kanan">' + m.jumlah + '</td><td class="kanan">' + rupiah(m.total) + '</td></tr>').join('') +
+      '</table></div>' +
+
+      '<div class="kartu" style="margin-bottom:16px"><h2>Menu terlaris</h2>' +
+        (d.menu_terlaris.length
+          ? '<table><tr><th>Menu</th><th class="kanan">Terjual</th><th class="kanan">Pendapatan</th></tr>' +
+            d.menu_terlaris.map((m, i) => '<tr><td>' + (i + 1) + '. ' + aman(m.nama) + bar(m.jumlah, maksMenu) + '</td><td class="kanan">' + m.jumlah + '</td><td class="kanan">' + rupiah(m.pendapatan) + '</td></tr>').join('') + '</table>'
+          : '<p class="lembut">Belum ada data.</p>') +
+      '</div>' +
+
+      (mode === 'mingguan'
+        ? '<div class="kartu" style="margin-bottom:16px"><h2>Pendapatan per hari</h2>' +
+          d.per_hari.map((h) => '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px"><span>' + labelTgl(h.tanggal, true) + '</span><strong>' + rupiah(h.pendapatan) + '</strong></div>' + bar(h.pendapatan, maksHari) + '<span class="lembut">' + h.jumlah + ' pesanan selesai</span></div>').join('') +
+          '</div>'
+        : '');
+  }
+
+  $('mode').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-mode]');
+    if (t) { mode = t.dataset.mode; tampilMode(); muat(); }
+  });
+  $('tanggal').addEventListener('change', (e) => {
+    if (e.target.value) { tanggal = e.target.value; muat(); }
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('penjual');
+    if (!profil) return;
+    $('tanggal').value = tanggal;
+    $('tanggal').max = hariIni();
+    tampilMode();
+    document.body.hidden = false;
+    muat();
+  })();
+</script>
+</body></html>
