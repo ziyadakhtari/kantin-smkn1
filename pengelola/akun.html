@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<title>Kelola Akun - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<body hidden>
+<main class="container">
+  <p style="margin:8px 0"><a href="dashboard.html">Kembali ke dashboard</a></p>
+  <h1 style="font-size:1.8rem">Kelola akun</h1>
+  <input class="input" id="cari" type="search" placeholder="Cari nama atau email..." aria-label="Cari akun" style="margin-bottom:12px">
+  <div id="chips" class="baris-tombol" style="margin-bottom:16px"></div>
+  <div id="daftar"></div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase-client.js"></script>
+<script src="../js/ui.js"></script>
+<script src="../js/guard.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const PERAN = { semua: 'Semua', penjual: 'Penjual', pembeli: 'Pembeli' };
+  const STATUS = { aktif: ['Aktif', 'label-sukses'], nonaktif: ['Nonaktif', 'label-habis'], menunggu: ['Menunggu', 'label-aksen'], ditolak: ['Ditolak', 'label-habis'] };
+  let peran = 'semua', kata = '', akun = [], pewaktu = null;
+
+  async function muat() {
+    tampilLoading($('daftar'));
+    let q = db.from('profiles')
+      .select('id, nama, email, no_hp, peran, jenis_pembeli, kelas_jurusan, status_akun')
+      .in('peran', peran === 'semua' ? ['penjual', 'pembeli'] : [peran])
+      .order('dibuat_pada', { ascending: false }).limit(100);
+    const bersih = kata.replace(/[,()%*\\]/g, ' ').trim();
+    if (bersih) q = q.or('nama.ilike.*' + bersih + '*,email.ilike.*' + bersih + '*');
+    const { data, error } = await q;
+    if (error) return tampilKosong($('daftar'), 'Akun gagal dimuat', error.message);
+    akun = data;
+    gambar();
+  }
+
+  function gambarChips() {
+    $('chips').innerHTML = Object.keys(PERAN).map((k) =>
+      '<button class="tombol ' + (k === peran ? 'tombol-utama' : 'tombol-garis') + '" data-peran="' + k + '" style="min-height:40px;padding:0 16px">' + PERAN[k] + '</button>').join('');
+  }
+
+  function gambar() {
+    if (!akun.length) return tampilKosong($('daftar'), 'Akun tidak ditemukan', 'Coba kata kunci atau filter lain.');
+    $('daftar').innerHTML = akun.map((a) => {
+      const [teks, kelas] = STATUS[a.status_akun] || [a.status_akun, ''];
+      const info = a.peran === 'penjual' ? 'Penjual' : 'Pembeli' + (a.jenis_pembeli ? ' - ' + a.jenis_pembeli : '') + (a.kelas_jurusan ? ' - ' + a.kelas_jurusan : '');
+      let aksi = '';
+      if (a.status_akun === 'aktif') aksi = '<button class="tombol tombol-garis" data-ubah="nonaktif" data-id="' + a.id + '">Nonaktifkan</button>';
+      else if (a.status_akun === 'nonaktif') aksi = '<button class="tombol tombol-utama" data-ubah="aktif" data-id="' + a.id + '">Aktifkan</button>';
+      else aksi = '<a href="persetujuan.html">Atur di halaman Persetujuan</a>';
+      return '<div class="kartu" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong>' + aman(a.nama) + '</strong><span class="label ' + kelas + '">' + teks + '</span></div>' +
+        '<p class="lembut" style="margin:4px 0">' + aman(info) + '<br>' + aman(a.email) + (a.no_hp ? '<br>HP: ' + aman(a.no_hp) : '') + '</p>' +
+        '<div class="baris-tombol" style="margin-top:8px">' + aksi + '</div></div>';
+    }).join('') + (akun.length === 100 ? '<p class="lembut" style="text-align:center">Menampilkan 100 akun terbaru. Gunakan pencarian untuk akun lain.</p>' : '');
+  }
+
+  $('chips').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-peran]');
+    if (t) { peran = t.dataset.peran; gambarChips(); muat(); }
+  });
+  $('cari').addEventListener('input', (e) => {
+    clearTimeout(pewaktu);
+    pewaktu = setTimeout(() => { kata = e.target.value; muat(); }, 350);
+  });
+
+  $('daftar').addEventListener('click', async (e) => {
+    const t = e.target.closest('[data-ubah]');
+    if (!t) return;
+    const a = akun.find((x) => x.id === t.dataset.id);
+    const baru = t.dataset.ubah;
+    if (baru === 'nonaktif' && !confirm('Nonaktifkan akun ' + a.nama + '? Akun ini tidak bisa masuk sampai diaktifkan lagi.')) return;
+    tombolSibuk(t, true, 'Menyimpan...');
+    const { data, error } = await db.from('profiles').update({ status_akun: baru }).eq('id', a.id).select('id');
+    if (error || !data || !data.length) { tampilToast('Gagal menyimpan. ' + (error ? error.message : ''), 'gagal'); return tombolSibuk(t, false); }
+    tampilToast(baru === 'aktif' ? 'Akun diaktifkan' : 'Akun dinonaktifkan', 'sukses');
+    muat();
+  });
+
+  (async () => {
+    pasangHeader(true);
+    const profil = await wajibPeran('pengelola');
+    if (!profil) return;
+    gambarChips();
+    document.body.hidden = false;
+    muat();
+  })();
+</script>
+</body></html>
