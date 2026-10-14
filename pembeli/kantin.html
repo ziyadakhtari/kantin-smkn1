@@ -6,6 +6,7 @@
 <body hidden>
 <main class="container">
   <h1 id="sapaan" style="font-size:1.8rem;margin-top:12px">Halo</h1>
+  <div id="pengumuman"></div>
   <p class="lembut">Pilih kantin yang sedang buka.</p>
   <div id="daftar"></div>
 </main>
@@ -33,6 +34,14 @@
       </a>`).join('') + '</div>';
   }
 
+  async function muatPengumuman() {
+    const { data } = await db.from('pengumuman').select('id, judul, isi').eq('aktif', true)
+      .order('dibuat_pada', { ascending: false }).limit(3);
+    if (!data || !data.length) return;
+    document.getElementById('pengumuman').innerHTML = data.map((p) =>
+      `<div class="kartu" style="margin-bottom:12px;border-left:6px solid var(--aksen)"><strong>${aman(p.judul)}</strong><p style="margin:4px 0 0">${aman(p.isi)}</p></div>`).join('');
+  }
+
   (async () => {
     pasangHeader(true);
     const profil = await wajibPeran('pembeli');
@@ -41,6 +50,7 @@
     pasangNavPembeli('kantin');
     document.getElementById('sapaan').textContent = 'Halo, ' + profil.nama;
     document.body.hidden = false;
+    muatPengumuman();
     muat();
   })();
 </script>
