@@ -2,19 +2,16 @@
 <html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<title>Pengumuman - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
+<title>Dashboard Pengelola - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="../css/style.css"></head>
 <body hidden>
 <main class="container">
-  <p style="margin:8px 0"><a href="dashboard.html">Kembali ke dashboard</a></p>
-  <h1 style="font-size:1.8rem">Pengumuman</h1>
-  <p class="lembut">Pengumuman yang aktif tampil di halaman utama pembeli.</p>
-  <form id="form" class="kartu" style="margin-bottom:20px">
-    <div class="field"><label for="judul">Judul</label><input class="input" id="judul" maxlength="80" required></div>
-    <div class="field"><label for="isi">Isi pengumuman</label><textarea class="input" id="isi" rows="3" maxlength="300" required></textarea></div>
-    <button class="tombol tombol-aksen tombol-penuh" type="submit">Terbitkan</button>
-  </form>
-  <h2>Daftar pengumuman</h2>
-  <div id="daftar"></div>
+  <h1 id="sapaan" style="font-size:1.8rem;margin-top:12px">Halo</h1>
+  <div class="baris-tombol" style="margin-bottom:16px">
+    <a class="tombol tombol-aksen" href="persetujuan.html">Persetujuan penjual <span id="lencana-tunggu"></span></a>
+    <a class="tombol tombol-utama" href="akun.html">Kelola akun</a>
+    <a class="tombol tombol-utama" href="pengumuman.html">Pengumuman</a>
+  </div>
+  <div id="hasil"></div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="../js/supabase-client.js"></script>
@@ -22,57 +19,42 @@
 <script src="../js/guard.js"></script>
 <script>
   const $ = (id) => document.getElementById(id);
-  let uid = null, daftarData = [];
 
-  async function muat() {
-    tampilLoading($('daftar'));
-    const { data, error } = await db.from('pengumuman').select('*').order('dibuat_pada', { ascending: false });
-    if (error) return tampilKosong($('daftar'), 'Pengumuman gagal dimuat', error.message);
-    daftarData = data;
-    if (!data.length) return tampilKosong($('daftar'), 'Belum ada pengumuman', 'Tulis pengumuman pertama lewat formulir di atas.');
-    $('daftar').innerHTML = data.map((p) => {
-      const tgl = new Date(p.dibuat_pada).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'long', year: 'numeric' });
-      return '<div class="kartu" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong>' + aman(p.judul) + '</strong>' +
-        (p.aktif ? '<span class="label label-sukses">Tampil</span>' : '<span class="label label-habis">Disembunyikan</span>') + '</div>' +
-        '<p class="lembut" style="margin:4px 0">' + tgl + '</p><p style="margin:0 0 8px">' + aman(p.isi) + '</p>' +
-        '<div class="baris-tombol"><button class="tombol tombol-garis" data-aksi="tampil" data-id="' + p.id + '">' + (p.aktif ? 'Sembunyikan' : 'Tampilkan') + '</button>' +
-        '<button class="tombol tombol-garis" data-aksi="hapus" data-id="' + p.id + '">Hapus</button></div></div>';
-    }).join('');
+  async function muat(awal) {
+    if (awal) tampilLoading($('hasil'));
+    const { data, error } = await db.rpc('ringkasan_kantin');
+    if (error) { if (awal) tampilKosong($('hasil'), 'Ringkasan gagal dimuat', error.message); return; }
+    gambar(data);
   }
 
-  $('form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const tombol = e.target.querySelector('button[type=submit]');
-    tombolSibuk(tombol, true, 'Menerbitkan...');
-    const { error } = await db.from('pengumuman').insert({ judul: $('judul').value.trim(), isi: $('isi').value.trim(), dibuat_oleh: uid });
-    if (error) tampilToast('Gagal: ' + error.message, 'gagal');
-    else { tampilToast('Pengumuman diterbitkan', 'sukses'); e.target.reset(); muat(); }
-    tombolSibuk(tombol, false);
-  });
-
-  $('daftar').addEventListener('click', async (e) => {
-    const t = e.target.closest('[data-aksi]');
-    if (!t) return;
-    const p = daftarData.find((x) => x.id === t.dataset.id);
-    let hasil;
-    if (t.dataset.aksi === 'tampil') hasil = await db.from('pengumuman').update({ aktif: !p.aktif }).eq('id', p.id).select('id');
-    else {
-      if (!confirm('Hapus pengumuman "' + p.judul + '"?')) return;
-      hasil = await db.from('pengumuman').delete().eq('id', p.id).select('id');
-    }
-    if (hasil.error || !hasil.data || !hasil.data.length) return tampilToast('Gagal. ' + (hasil.error ? hasil.error.message : ''), 'gagal');
-    tampilToast('Tersimpan', 'sukses');
-    muat();
-  });
+  function gambar(d) {
+    const t = d.total;
+    $('lencana-tunggu').innerHTML = t.penjual_menunggu ? '<span class="label" style="background:#fff;color:#a34a00">' + t.penjual_menunggu + '</span>' : '';
+    const stat = (judul, nilai) => '<div class="kartu" style="padding:14px"><div class="lembut">' + judul + '</div><div style="font-size:1.5rem;font-weight:800;color:var(--utama)">' + nilai + '</div></div>';
+    $('hasil').innerHTML =
+      '<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px">' +
+        stat('Kantin buka', t.kantin_buka + ' dari ' + t.kantin_aktif) +
+        stat('Pesanan hari ini', t.pesanan_hari_ini) +
+        stat('Penjual menunggu', t.penjual_menunggu) +
+        stat('Pembeli aktif', t.pembeli_aktif) +
+      '</div><h2>Semua kantin</h2>' +
+      (d.kantin.length ? d.kantin.map((k) => {
+        const label = k.status_akun !== 'aktif' ? '<span class="label label-habis">Dinonaktifkan</span>'
+          : k.sedang_buka ? '<span class="label label-sukses">Buka</span>' : '<span class="label label-habis">Tutup</span>';
+        return '<div class="kartu" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><strong>' + aman(k.nama_kantin) + '</strong>' + label + '</div>' +
+          '<p class="lembut" style="margin:4px 0">Pemilik: ' + aman(k.pemilik) + '</p>' +
+          '<p style="margin:0"><strong>' + k.pesanan_hari_ini + '</strong> pesanan hari ini (' + k.selesai_hari_ini + ' selesai)</p></div>';
+      }).join('') : '<div class="kartu"><div class="kosong"><strong>Belum ada kantin</strong>Kantin muncul setelah penjual disetujui.</div></div>');
+  }
 
   (async () => {
     pasangHeader(true);
     const profil = await wajibPeran('pengelola');
     if (!profil) return;
-    const { data: { session } } = await db.auth.getSession();
-    uid = session.user.id;
+    $('sapaan').textContent = 'Halo, ' + profil.nama;
     document.body.hidden = false;
-    muat();
+    muat(true);
+    setInterval(() => muat(false), 60000);
   })();
 </script>
 </body></html>
