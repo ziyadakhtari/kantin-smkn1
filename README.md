@@ -31,8 +31,9 @@ img/logo-smkn1.png       logo sekolah
 2. Jalankan skrip di SQL Editor **berurutan**: `01-tabel`, `02-rls`, `03-fungsi`, `05-storage`, `06-laporan`, `07-pengelola`.
 3. Isi `js/supabase-client.js` dengan Project URL dan **publishable key**.
 4. Buat akun pengelola: Authentication > Users > Add user (centang Auto Confirm), lalu jalankan `sql/04-buat-pengelola.sql`.
-5. Unggah ke GitHub, aktifkan GitHub Pages (Settings > Pages > branch main, folder root).
-6. Jalankan `sql/08-uji-keamanan.sql`: semua baris hasil harus **LULUS**.
+5. Aktifkan fitur lupa password: atur **SMTP kustom** di Authentication > Emails > SMTP Settings (layanan email bawaan Supabase hanya mengirim ke anggota tim dan dibatasi 2 email per jam), lalu tambahkan alamat website + `/**` di Authentication > URL Configuration > Redirect URLs.
+6. Unggah ke GitHub, aktifkan GitHub Pages (Settings > Pages > branch main, folder root).
+7. Jalankan `sql/08-uji-keamanan.sql`: semua baris hasil harus **LULUS**.
 
 ## Keamanan (penting)
 - **Boleh** ada di kode: Project URL dan publishable key (`sb_publishable_...`).
