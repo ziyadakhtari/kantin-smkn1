@@ -1,0 +1,18 @@
+# Opsional: mengirim permintaan ringan ke Supabase tiap 3 hari agar proyek paket gratis
+# tidak dihentikan karena tidak ada aktivitas selama 1 minggu.
+# Ganti dua nilai GANTI_... di bawah (keduanya aman ditaruh di sini, bukan rahasia).
+name: Jaga Supabase tetap aktif
+
+on:
+  schedule:
+    - cron: '17 3 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Kirim permintaan ringan ke Supabase
+        run: |
+          curl -fsS "https://bkpiipyauksrtacibwss.supabase.co/rest/v1/pengumuman?select=id&limit=1" \
+            -H "apikey: sb_publishable_BYZjvHYNU8gWDYcd45A9Nw_7WNxh2KE"
