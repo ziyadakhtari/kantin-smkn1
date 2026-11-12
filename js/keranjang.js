@@ -70,15 +70,9 @@ function hapusItem(id) {
 }
 
 // Menu navigasi di bagian bawah layar (nyaman untuk HP)
+// Gaya sudah ada di css/style.css (nav-bawah, lencana, sidebar desktop).
+// Blok <style> lama dihapus agar tidak menimpa desain baru.
 function pasangNavPembeli(aktif) {
-  const gaya = document.createElement('style');
-  gaya.textContent = `
-    .nav-bawah{position:fixed;left:0;right:0;bottom:0;display:flex;background:#fff;border-top:1px solid var(--garis);z-index:20}
-    .nav-bawah a{flex:1;text-align:center;padding:16px 4px;font-size:.92rem;font-weight:700;color:var(--lembut);text-decoration:none}
-    .nav-bawah a.aktif{color:var(--utama);box-shadow:inset 0 3px 0 var(--aksen)}
-    .lencana{display:inline-block;min-width:22px;padding:0 6px;border-radius:99px;background:var(--aksen);color:#2b1300;font-size:.8rem}
-    .toast-area{bottom:84px}`;
-  document.head.appendChild(gaya);
   const nav = document.createElement('nav');
   nav.className = 'nav-bawah';
   nav.innerHTML = `
@@ -87,7 +81,6 @@ function pasangNavPembeli(aktif) {
     <a href="${AKAR}pembeli/riwayat.html" class="${aktif === 'riwayat' ? 'aktif' : ''}">Riwayat</a>
     <a href="${AKAR}pembeli/profil.html" class="${aktif === 'profil' ? 'aktif' : ''}">Profil</a>`;
   document.body.appendChild(nav);
-  document.body.style.paddingBottom = '72px';
   perbaruiLencana();
 }
 
