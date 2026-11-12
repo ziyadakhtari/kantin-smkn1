@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SkipAntre - Kantin SMKN 1 Cimahi</title>
+  <title>Pelayanan Kantin SMK Negeri 1 Cimahi</title>
   <meta name="description" content="Pesan makanan dan jajanan kantin SMK Negeri 1 Cimahi dari kelas, ambil dengan nomor antrean.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,9 +14,10 @@
   <header class="header">
     <div class="container">
       <a class="merek" href="index.html">
+        <!-- Taruh logo sekolah di img/logo-smkn1.png. Kalau belum ada, tampil lingkaran kosong. -->
         <img class="logo" src="img/logo-smkn1.png" alt="Logo SMK Negeri 1 Cimahi"
              onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'logo-kosong',title:'Taruh logo di img/logo-smkn1.png'}))">
-        <span class="merek-teks"><b>Skip<span>Antre</span></b><small>Kantin SMKN 1 Cimahi</small></span>
+        <span>Kantin<br>SMKN 1 Cimahi</span>
       </a>
       <a class="tombol tombol-garis" href="login.html">Masuk</a>
     </div>
@@ -25,7 +26,6 @@
   <main class="container">
     <section class="hero">
       <div>
-        <div class="hero-merek"><b>SkipAntre</b> Kantin SMKN 1 Cimahi</div>
         <h1>Pesan dari kelas, ambil tanpa antre.</h1>
         <p class="lembut">Pilih menu dari kantin sekolah, dapatkan nomor antrean, lalu ambil pesananmu saat sudah siap. Untuk siswa, guru, dan pegawai.</p>
         <div class="baris-tombol">
@@ -33,6 +33,7 @@
           <a class="tombol tombol-garis" href="daftar-penjual.html">Daftar sebagai penjual</a>
         </div>
       </div>
+      <!-- Contoh tiket antrean: hanya tampilan, bukan data asli -->
       <div class="tiket" aria-hidden="true">
         <small>Contoh nomor antrean</small>
         <div class="nomor">07</div>
@@ -51,6 +52,6 @@
     </section>
   </main>
 
-  <footer class="footer">SkipAntre &mdash; Kantin SMKN 1 Cimahi</footer>
+  <footer class="footer">Pelayanan Kantin SMK Negeri 1 Cimahi</footer>
 </body>
 </html>
