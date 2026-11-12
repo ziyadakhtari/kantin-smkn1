@@ -2,27 +2,19 @@
 <html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<title>Masuk - SkipAntre</title><link rel="stylesheet" href="css/style.css"></head>
-<body class="hal-auth">
+<title>Masuk - Kantin SMKN 1 Cimahi</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
 <main class="container">
-  <div class="kartu kartu-auth">
-    <a class="auth-merek" href="index.html">
-      <img src="img/logo-smkn1.png" alt="Logo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'logo-kosong',style:'width:44px;height:44px'}))">
-      <span class="merek-teks"><b>Skip<span>Antre</span></b><small>Kantin SMKN 1 Cimahi</small></span>
-    </a>
-    <h1 class="auth-judul">Selamat Datang</h1>
+  <div class="kartu" style="max-width:440px;margin:24px auto">
+    <h1 style="font-size:1.8rem">Masuk</h1>
     <div id="pesan" class="status-kotak" hidden></div>
     <form id="form-login">
-      <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" placeholder="Email" autocomplete="email" required></div>
-      <div class="field"><label for="password">Password</label><input class="input" id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" required></div>
+      <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" autocomplete="email" required></div>
+      <div class="field"><label for="password">Password</label><input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
       <button class="tombol tombol-utama tombol-penuh" type="submit">Masuk</button>
     </form>
-    <p class="auth-tautan"><a href="lupa-password.html">Lupa password?</a></p>
-    <div class="auth-pemisah">atau</div>
-    <div class="baris-tombol auth-daftar">
-      <a class="tombol tombol-garis" href="daftar-pembeli.html">Daftar Pembeli</a>
-      <a class="tombol tombol-garis" href="daftar-penjual.html">Daftar Penjual</a>
-    </div>
+    <p style="margin:12px 0 0"><a href="lupa-password.html">Lupa password?</a></p>
+    <p style="margin:16px 0 0" class="lembut">Belum punya akun? <a href="daftar-pembeli.html">Daftar untuk memesan</a> atau <a href="daftar-penjual.html">daftar sebagai penjual</a>.</p>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -35,6 +27,7 @@
   const adaPesan = new URLSearchParams(location.search).get('pesan');
   if (PESAN_STATUS[adaPesan]) tampilPesan(document.getElementById('pesan'), PESAN_STATUS[adaPesan], 'gagal');
   document.getElementById('form-login').addEventListener('submit', prosesLogin);
+  // Kalau sudah login, langsung arahkan ke halaman sesuai peran
   ambilProfil().then((p) => { if (p && p.status_akun === 'aktif') location.replace(AKAR + HALAMAN_PERAN[p.peran]); });
 </script>
 </body></html>
