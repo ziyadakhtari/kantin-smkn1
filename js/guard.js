@@ -54,7 +54,7 @@ function pasangHeader(denganKeluar = false) {
   h.innerHTML = `<div class="container">
     <a class="merek" href="${AKAR}index.html">
       <img class="logo" src="${AKAR}img/logo-smkn1.png" alt="Logo SMK Negeri 1 Cimahi">
-      <span>Kantin<br>SMKN 1 Cimahi</span>
+      <span class="merek-teks"><b>Skip<span>Antre</span></b><small>Kantin SMKN 1 Cimahi</small></span>
     </a>
     ${denganKeluar ? '<button class="tombol tombol-garis" id="tombol-keluar">Keluar</button>' : ''}
   </div>`;
