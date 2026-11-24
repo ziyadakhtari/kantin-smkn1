@@ -108,13 +108,13 @@ function tombolSibuk(tombol, sibuk, teksSibuk = 'Memproses...') {
     const naikkanKartu = (kartu) => animate(kartu, {
       y: -6,
       scale: 1.012,
-      boxShadow: '0 16px 30px rgba(7, 42, 96, 0.14)'
+      boxShadow: '0 16px 30px rgba(42, 45, 52, 0.14)'
     }, { duration: 0.22, easing: 'ease-out' });
 
     const turunkanKartu = (kartu) => animate(kartu, {
       y: 0,
       scale: 1,
-      boxShadow: '0 0 0 rgba(7, 42, 96, 0)'
+      boxShadow: '0 0 0 rgba(42, 45, 52, 0)'
     }, { duration: 0.24, easing: 'ease-out' });
 
     function siapkanKartu(kartu, urutan = 0) {
