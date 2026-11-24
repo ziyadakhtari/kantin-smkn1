@@ -1,12 +1,13 @@
 /* style.css - gaya dasar seluruh website.
    Mau ganti warna? Cukup ubah bagian :root di bawah ini. */
 :root{
-  --utama:#0a3a82; --utama-tua:#072a60;
-  --aksen:#ff7a1a; --aksen-muda:#fff1e5;
-  --latar:#f3f6fb; --kartu:#ffffff;
-  --teks:#14213d; --lembut:#5a6578; --garis:#dde4ee;
-  --sukses:#14946b; --bahaya:#d63a3a;
-  --r-besar:20px; --r-sedang:12px;
+  /* Palet 60/30/10: Stone sebagai dasar, Graphite sebagai struktur, Cobalt sebagai fokus. */
+  --utama:#2a2d34; --utama-tua:#1d1f24;
+  --aksen:#2f5bff; --aksen-muda:#e5ebff;
+  --latar:#ecebe6; --kartu:#f8f8f5;
+  --teks:#2a2d34; --lembut:#555963; --garis:#d5d4ce;
+  --sukses:#2f5bff; --bahaya:#b83939;
+  --r-besar:16px; --r-sedang:10px;
   --font:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
 *{box-sizing:border-box}
@@ -27,19 +28,20 @@ p{margin:0 0 1em}
 .container{max-width:960px;margin:0 auto;padding:16px}
 
 /* Header */
-.header{background:var(--kartu);border-bottom:1px solid var(--garis);position:sticky;top:0;z-index:10}
+.header{background:rgba(248,248,245,.92);border-bottom:1px solid var(--garis);backdrop-filter:blur(12px);position:sticky;top:0;z-index:10}
 .header .container{display:flex;align-items:center;gap:12px;padding-top:10px;padding-bottom:10px}
 .merek{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--utama);font-weight:800;line-height:1.15;margin-right:auto}
 .logo{width:40px;height:40px;object-fit:contain}
 .logo-kosong{width:40px;height:40px;border-radius:50%;background:var(--aksen-muda);border:2px dashed var(--aksen);flex:none}
 
 /* Tombol */
-.tombol{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:var(--r-sedang);border:2px solid transparent;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;transition:background .15s}
+.tombol{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:var(--r-sedang);border:2px solid transparent;font:inherit;font-weight:700;cursor:pointer;text-decoration:none;transition:background .15s,border-color .15s,color .15s}
 .tombol-utama{background:var(--utama);color:#fff}
 .tombol-utama:hover{background:var(--utama-tua)}
-.tombol-aksen{background:var(--aksen);color:#2b1300}
-.tombol-aksen:hover{background:#ff8f3d}
-.tombol-garis{background:#fff;color:var(--utama);border-color:var(--utama)}
+.tombol-aksen{background:var(--aksen);color:#fff}
+.tombol-aksen:hover{background:#1746ed}
+.tombol-garis{background:transparent;color:var(--utama);border-color:var(--utama)}
+.tombol-garis:hover{background:#e1e0da}
 .tombol:disabled{opacity:.5;cursor:not-allowed}
 .tombol-penuh{width:100%}
 .baris-tombol{display:flex;flex-wrap:wrap;gap:12px}
@@ -47,13 +49,13 @@ p{margin:0 0 1em}
 /* Formulir (dipakai di Langkah 3) */
 .field{margin-bottom:14px}
 .field label{display:block;font-weight:600;margin-bottom:6px}
-.input{width:100%;min-height:48px;padding:10px 14px;border:2px solid var(--garis);border-radius:var(--r-sedang);font:inherit;background:#fff}
+.input{width:100%;min-height:48px;padding:10px 14px;border:2px solid var(--garis);border-radius:var(--r-sedang);font:inherit;background:var(--kartu)}
 .input:focus{border-color:var(--utama);outline:none}
 
 /* Kartu dan kartu menu */
-.kartu{background:var(--kartu);border-radius:var(--r-besar);padding:18px;border:1px solid var(--garis)}
+.kartu{background:var(--kartu);border-radius:var(--r-besar);padding:18px;border:1px solid var(--garis);box-shadow:0 4px 14px rgba(42,45,52,.045)}
 .grid-menu{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
-.kartu-menu{background:var(--kartu);border-radius:var(--r-besar);overflow:hidden;border:1px solid var(--garis);display:flex;flex-direction:column}
+.kartu-menu{background:var(--kartu);border-radius:var(--r-besar);overflow:hidden;border:1px solid var(--garis);display:flex;flex-direction:column;box-shadow:0 4px 14px rgba(42,45,52,.045)}
 /* Ditambahkan oleh Motion setelah kartu siap dianimasikan. */
 .motion-card{will-change:transform,opacity}
 .kartu-menu .foto{aspect-ratio:4/3;width:100%;object-fit:cover;background:#e8eef8;display:grid;place-items:center;color:var(--lembut)}
@@ -62,17 +64,17 @@ p{margin:0 0 1em}
 .kartu-menu .harga{font-weight:800;color:var(--utama);margin-top:auto}
 .kartu-menu.habis .foto{filter:grayscale(1);opacity:.6}
 .label{display:inline-block;align-self:flex-start;padding:2px 10px;border-radius:99px;font-size:.8rem;font-weight:700}
-.label-habis{background:#ffe3e3;color:var(--bahaya)}
-.label-sukses{background:#d9f5ea;color:var(--sukses)}
-.label-aksen{background:var(--aksen-muda);color:#a34a00}
+.label-habis{background:#f7e2e2;color:var(--bahaya)}
+.label-sukses{background:var(--aksen-muda);color:var(--sukses)}
+.label-aksen{background:var(--aksen-muda);color:var(--aksen)}
 
 /* Tiket antrean (ciri khas beranda) */
-.tiket{background:var(--utama);color:#fff;border-radius:var(--r-besar);padding:22px 24px;max-width:340px}
+.tiket{background:var(--utama);color:#fff;border-radius:var(--r-besar);padding:22px 24px;max-width:340px;box-shadow:0 14px 30px rgba(42,45,52,.18)}
 .tiket .garis-putus{position:relative;border-top:2px dashed rgba(255,255,255,.45);margin:16px -24px}
 .tiket .garis-putus::before,.tiket .garis-putus::after{content:"";position:absolute;top:-12px;width:22px;height:22px;border-radius:50%;background:var(--latar)}
 .tiket .garis-putus::before{left:-11px}
 .tiket .garis-putus::after{right:-11px}
-.tiket .nomor{font-size:4rem;font-weight:800;line-height:1;color:var(--aksen)}
+.tiket .nomor{font-size:4rem;font-weight:800;line-height:1;color:#90a8ff}
 .tiket small{opacity:.8}
 
 /* Beranda */
@@ -89,10 +91,10 @@ p{margin:0 0 1em}
 .kosong strong{display:block;color:var(--teks);font-size:1.1rem;margin-bottom:4px}
 .toast-area{position:fixed;left:0;right:0;bottom:16px;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;z-index:50;padding:0 16px}
 .toast{background:var(--teks);color:#fff;padding:12px 18px;border-radius:var(--r-sedang);font-weight:600;max-width:420px}
-.toast.sukses{background:var(--sukses)}
+.toast.sukses{background:var(--aksen)}
 .toast.gagal{background:var(--bahaya)}
 .status-kotak{border-radius:var(--r-sedang);padding:14px 16px;font-weight:600;background:#eef2f9}
-.status-kotak.ok{background:#d9f5ea;color:#0d6b4c}
+.status-kotak.ok{background:var(--aksen-muda);color:#244acb}
 .status-kotak.gagal{background:#ffe3e3;color:#a02020}
 .footer{padding:24px 16px;text-align:center;color:var(--lembut);font-size:.9rem}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
